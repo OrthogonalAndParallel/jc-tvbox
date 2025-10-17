@@ -1,0 +1,28 @@
+{
+  "urls": [
+    {
+      "url": "https://chuanshuo.77blog.cn/tv.json",
+      "name": "电视魔盒"
+    },
+    {
+      "url": "http://www.饭太硬.net/tv",
+      "name": "饭太硬"
+    },
+    {
+      "url": "http://肥猫.com",
+      "name": "肥猫"
+    },
+    {
+      "url": "http://ok321.top/tv",
+      "name": "ok线路"
+    },
+    {
+      "url": "http://cdn.qiaoji8.com/tvbox.json",
+      "name": "巧技"
+    },
+    {
+      "url": "https://tv.xn--yhqu5zs87a.top",
+      "name": "菜妮丝"
+    }
+  ]
+}
