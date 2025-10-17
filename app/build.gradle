@@ -2,7 +2,7 @@ apply plugin: 'com.android.application'
 apply plugin: 'org.jetbrains.kotlin.android'
 
 android {
-    compileSdkVersion 33
+    compileSdk 33
 
     defaultConfig {
         applicationId 'com.github.tvbox.osc'
@@ -162,7 +162,9 @@ dependencies {
     //崩溃
     implementation project(":crash")
     //dlna投屏
-    implementation 'com.github.devin1014.DLNA-Cast:dlna-dmc:V1.0.0'
+    implementation project(path: ':dlna-core')
+    implementation project(path: ':dlna-dmc')
+    // implementation 'com.github.devin1014.DLNA-Cast:dlna-dmc:V1.0.0'
     // Lifecycles only (without ViewModel or LiveData)
     implementation "androidx.lifecycle:lifecycle-runtime-ktx:2.2.0"
 }

@@ -5,3 +5,6 @@ include ':quickjs'
 include ':TabLayout'
 include ':ViewPager1Delegate'
 include ':crash'
+include ':dlna-core',':dlna-dmc'
+project(':dlna-core').projectDir = new File('/Users/jinchen/Documents/github/DLNA-Cast/dlna-core')
+project(':dlna-dmc').projectDir = new File('/Users/jinchen/Documents/github/DLNA-Cast/dlna-dmc')
