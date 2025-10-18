@@ -1,0 +1,160 @@
+{
+  "urls": [
+    {
+      "url": "https://chuanshuo.77blog.cn/tv.json",
+      "name": "电视魔盒"
+    },
+    {
+      "url": "http://www.饭太硬.net/tv",
+      "name": "饭太硬"
+    },
+    {
+      "url": "http://肥猫.com",
+      "name": "肥猫"
+    },
+    {
+      "url": "http://ok321.top/tv",
+      "name": "ok线路"
+    },
+    {
+      "url": "http://cdn.qiaoji8.com/tvbox.json",
+      "name": "巧技"
+    },
+    {
+      "url": "https://tv.xn--yhqu5zs87a.top",
+      "name": "菜妮丝"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/R18.json",
+      "name": "R18"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/tvbox-福利.json",
+      "name": "tvbox-福利"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/18cn.json",
+      "name": "18cn"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/1.json",
+      "name": "1"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/2.json",
+      "name": "2"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/3.json",
+      "name": "3"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/4.json",
+      "name": "4"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/5.json",
+      "name": "5"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/6.json",
+      "name": "6"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/7.json",
+      "name": "7"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/8.json",
+      "name": "8"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/9.json",
+      "name": "9"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/10.json",
+      "name": "10"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/11.json",
+      "name": "11"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/22.json",
+      "name": "22"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/23.json",
+      "name": "23"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/24.json",
+      "name": "24"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/25.json",
+      "name": "25"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/26.json",
+      "name": "26"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/27.json",
+      "name": "27"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/28.json",
+      "name": "28"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/29.json",
+      "name": "29"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/30.json",
+      "name": "30"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/31.json",
+      "name": "31"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/32.json",
+      "name": "32"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/33.json",
+      "name": "33"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/34.json",
+      "name": "34"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/35.json",
+      "name": "35"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/36.json",
+      "name": "36"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/37.json",
+      "name": "37"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/38.json",
+      "name": "38"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/39.json",
+      "name": "39"
+    },
+    {
+      "url": "https://github.com/OrthogonalAndParallel/jc-tvbox/tree/main/tvbox/network/40.json",
+      "name": "40"
+    }
+  ]
+}
