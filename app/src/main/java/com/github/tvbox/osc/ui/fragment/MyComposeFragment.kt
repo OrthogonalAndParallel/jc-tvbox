@@ -94,7 +94,7 @@ class MyComposeFragment : Fragment() {
                             .asCustom(AboutDialog(requireActivity()))
                             .show()
                     },
-                    onSetting = { jumpActivity(SettingActivity::class.java) }
+                    onSetting = { jumpActivity(SettingComposeActivity::class.java) }
                 )
             }
         }
@@ -171,7 +171,7 @@ private fun MyScreen(
             verticalAlignment = Alignment.Bottom
         ) {
             Text(
-                text = "JCTV",
+                text = "JCBox",
                 fontSize = 22.sp,
                 color = Color.Black,
                 fontWeight = FontWeight.Medium,

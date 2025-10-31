@@ -79,8 +79,9 @@
             android:name=".ui.activity.FastSearchActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
             />
+        
         <activity
-            android:name=".ui.activity.SettingActivity"
+            android:name=".ui.activity.SettingComposeActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"/>
         <activity
             android:name=".ui.activity.HistoryActivity"
