@@ -15,6 +15,14 @@ import com.github.tvbox.osc.ui.fragment.HomeFragment
 import com.github.tvbox.osc.ui.fragment.MyFragment
 import kotlin.system.exitProcess
 
+// Compose imports
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.outlined.Person
+
 class MainActivity : BaseVbActivity<ActivityMainBinding>() {
 
     var fragments = listOf(HomeFragment(),MyFragment())
@@ -35,13 +43,64 @@ class MainActivity : BaseVbActivity<ActivityMainBinding>() {
             }
         }
 
-        mBinding.bottomNav.setOnNavigationItemSelectedListener { menuItem: MenuItem ->
-            mBinding.vp.setCurrentItem(menuItem.order, false)
-            true
+        // Compose Bottom Navigation
+        val composeView = mBinding.composeBottomNav
+        composeView.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+        var selectedIndex = 0
+        composeView.setContent {
+            var current by remember { mutableStateOf(0) }
+            // Sync from ViewPager to Compose state
+            LaunchedEffect(Unit) {
+                current = mBinding.vp.currentItem
+            }
+            NavigationBar {
+                NavigationBarItem(
+                    selected = current == 0,
+                    onClick = {
+                        current = 0
+                        mBinding.vp.setCurrentItem(0, false)
+                    },
+                    icon = { Icon(Icons.Default.Home, contentDescription = "首页") },
+                    label = { Text("首页") }
+                )
+                NavigationBarItem(
+                    selected = current == 1,
+                    onClick = {
+                        current = 1
+                        mBinding.vp.setCurrentItem(1, false)
+                    },
+                    icon = { Icon(Icons.Outlined.Person, contentDescription = "我的") },
+                    label = { Text("我的") }
+                )
+            }
         }
+
         mBinding.vp.addOnPageChangeListener(object : SimpleOnPageChangeListener() {
             override fun onPageSelected(position: Int) {
-                mBinding.bottomNav.menu.getItem(position).setChecked(true)
+                // trigger recomposition by resetting compose content with new selected index
+                mBinding.composeBottomNav.setContent {
+                    var current by remember { mutableStateOf(position) }
+                    NavigationBar {
+                        NavigationBarItem(
+                            selected = current == 0,
+                            onClick = {
+                                current = 0
+                                mBinding.vp.setCurrentItem(0, false)
+                            },
+                            icon = { Icon(Icons.Default.Home, contentDescription = "首页") },
+                            label = { Text("首页") }
+                        )
+                        NavigationBarItem(
+                            selected = current == 1,
+                            onClick = {
+                                current = 1
+                                mBinding.vp.setCurrentItem(1, false)
+                            },
+                            icon = { Icon(Icons.Outlined.Person, contentDescription = "我的") },
+                            label = { Text("我的") }
+                        )
+                    }
+                }
             }
         })
     }
