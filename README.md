@@ -5,8 +5,8 @@
 jc-tv-app
 ├── app - 主应用核心
 ├── gradle
+├── crash - 
 ├── player - 多媒体播放引擎
-├── pyramid - Python爬虫引擎
 └── quickjs - JavaScript引擎
 ```
 

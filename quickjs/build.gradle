@@ -3,11 +3,18 @@ plugins {
 }
 
 android {
+    namespace 'com.whl.quickjs.android'
     compileSdk 33
 
-    defaultConfig {
-        minSdk 18
-        targetSdk 28
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    kotlinOptions {
+        jvmTarget = '17'
     }
 }
 

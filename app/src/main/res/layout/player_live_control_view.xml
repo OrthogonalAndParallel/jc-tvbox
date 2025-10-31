@@ -79,4 +79,11 @@
         android:tag="vod_control_loading"
         android:visibility="gone"
         tools:visibility="visible"/>
+
+    <ProgressBar
+        android:id="@+id/loading"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:visibility="gone" />
 </FrameLayout>
