@@ -12,7 +12,7 @@ import com.github.tvbox.osc.constant.IntentKey
 import com.github.tvbox.osc.databinding.ActivityMainBinding
 import com.github.tvbox.osc.ui.fragment.GridFragment
 import com.github.tvbox.osc.ui.fragment.HomeFragment
-import com.github.tvbox.osc.ui.fragment.MyFragment
+import com.github.tvbox.osc.ui.fragment.MyComposeFragment
 import kotlin.system.exitProcess
 
 // Compose imports
@@ -23,9 +23,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.outlined.Person
 
+/**
+ * 主页、导航栏
+ */
 class MainActivity : BaseVbActivity<ActivityMainBinding>() {
 
-    var fragments = listOf(HomeFragment(),MyFragment())
+    var fragments = listOf(HomeFragment(), MyComposeFragment())
     var useCacheConfig = false
     private var exitTime = 0L
 
