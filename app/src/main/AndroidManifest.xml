@@ -25,15 +25,15 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <application
-        android:name=".base.App"
         android:allowBackup="true"
+        android:name=".base.App"
+        android:icon="@mipmap/jc_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.JC"
         android:configChanges="orientation|keyboardHidden|screenSize"
         android:hardwareAccelerated="true"
-        android:icon="@drawable/app_icon"
-        android:label="@string/app_name"
         android:networkSecurityConfig="@xml/network_security_config"
         android:requestLegacyExternalStorage="true"
-        android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true">
         <!-- 启动页移除，直接以 MainActivity 作为启动入口 -->
         <activity
