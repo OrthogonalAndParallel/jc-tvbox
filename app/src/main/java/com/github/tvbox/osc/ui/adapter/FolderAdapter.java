@@ -28,8 +28,6 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-import me.jessyan.autosize.utils.AutoSizeUtils;
-
 public class FolderAdapter extends BaseQuickAdapter<VideoFolder, BaseViewHolder> {
     public FolderAdapter() {
         super(R.layout.item_folder);

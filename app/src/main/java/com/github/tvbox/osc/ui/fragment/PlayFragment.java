@@ -113,7 +113,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import me.jessyan.autosize.AutoSize;
 import tv.danmaku.ijk.media.player.IMediaPlayer;
 import tv.danmaku.ijk.media.player.IjkTimedText;
 import xyz.doikki.videoplayer.player.AbstractPlayer;
@@ -1661,8 +1660,7 @@ public class PlayFragment extends BaseLazyFragment {
         @Override
         public void setOverScrollMode(int mode) {
             super.setOverScrollMode(mode);
-            if (mContext instanceof Activity)
-                AutoSize.autoConvertDensityOfCustomAdapt((Activity) mContext, PlayFragment.this);
+            // removed AutoSize density conversion after dropping AndroidAutoSize
         }
 
         @Override

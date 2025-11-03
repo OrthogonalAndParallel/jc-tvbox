@@ -49,10 +49,8 @@ class MainActivity : BaseVbActivity<ActivityMainBinding>() {
         // Compose Bottom Navigation
         val composeView = mBinding.composeBottomNav
         composeView.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-        var selectedIndex = 0
         composeView.setContent {
             var current by remember { mutableStateOf(0) }
-            // Sync from ViewPager to Compose state
             LaunchedEffect(Unit) {
                 current = mBinding.vp.currentItem
             }

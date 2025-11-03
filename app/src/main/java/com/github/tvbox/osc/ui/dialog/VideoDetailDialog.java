@@ -21,8 +21,6 @@ import com.lxj.xpopup.core.BottomPopupView;
 import com.lxj.xpopup.util.SmartGlideImageLoader;
 import com.squareup.picasso.Picasso;
 
-import me.jessyan.autosize.utils.AutoSizeUtils;
-
 
 public class VideoDetailDialog extends BottomPopupView {
 

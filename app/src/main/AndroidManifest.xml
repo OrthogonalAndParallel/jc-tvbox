@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.github.tvbox.osc">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- 在 Android 11 中，应用程序需要声明它们要使用的其他应用程序的包名 -->
     <queries>
         <package android:name="idm.internet.download.manager.plus" />
@@ -36,6 +35,7 @@
         android:requestLegacyExternalStorage="true"
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="true">
+        <!-- 启动页 -->
         <activity
             android:name=".ui.activity.SplashActivity"
             android:exported="true"
@@ -60,8 +60,8 @@
         <activity
             android:name=".ui.activity.LocalPlayActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="false"
-            android:screenOrientation="landscape" />
+            android:exported="false" />
+        <!-- 主界面 -->
         <activity
             android:name=".ui.activity.MainActivity"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
@@ -70,6 +70,7 @@
             android:name=".ui.activity.LiveActivity"
             android:launchMode="singleTop"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode|screenLayout"/>
+        <!-- 详情页 -->
         <activity
             android:name=".ui.activity.DetailActivity"
             android:supportsPictureInPicture="true"
@@ -79,7 +80,7 @@
             android:name=".ui.activity.FastSearchActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"
             />
-        
+        <!-- 设置页 -->
         <activity
             android:name=".ui.activity.SettingComposeActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"/>
@@ -118,20 +119,6 @@
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />
 
-        <!-- autosize设计尺寸 -->
-        <meta-data
-            android:name="design_width_in_dp"
-            android:value="360" />
-        <meta-data
-            android:name="design_height_in_dp"
-            android:value="820" />
- <!-- immersionbar沉浸状态兰适配华为（huawei）刘海屏 -->
-        <meta-data
-            android:name="android.notch_support"
-            android:value="true" /> <!-- immersionbar沉浸状态兰适配小米（xiaomi）刘海屏 -->
-        <meta-data
-            android:name="notch.config"
-            android:value="portrait|landscape" />
     </application>
 
 </manifest>

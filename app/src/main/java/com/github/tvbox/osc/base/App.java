@@ -29,8 +29,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import cat.ereza.customactivityoncrash.config.CaocConfig;
-import me.jessyan.autosize.AutoSizeConfig;
-import me.jessyan.autosize.unit.Subunits;
 
 public class App extends MultiDexApplication {
     private static App instance;
@@ -56,13 +54,6 @@ public class App extends MultiDexApplication {
                 .addCallback(new EmptyCallback())
                 .addCallback(new LoadingCallback())
                 .commit();
-        AutoSizeConfig.getInstance()
-                .setExcludeFontScale(true)
-                .setCustomFragment(true)
-                .getUnitsManager()
-                .setSupportDP(false)
-                .setSupportSP(false)
-                .setSupportSubunits(Subunits.MM);
         PlayerHelper.init();
         QuickJSLoader.init();
         FileUtils.cleanPlayerCache();

@@ -25,8 +25,6 @@ import org.jetbrains.annotations.NotNull;
 import java.util.HashMap;
 import java.util.List;
 
-import me.jessyan.autosize.utils.AutoSizeUtils;
-
 public class SearchCheckboxDialog extends BaseDialog{
 
     private RecyclerView mGridView;
