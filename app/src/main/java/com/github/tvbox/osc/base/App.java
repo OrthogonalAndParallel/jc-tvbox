@@ -42,6 +42,8 @@ public class App extends MultiDexApplication {
     public void onCreate() {
         super.onCreate();
         instance = this;
+        // 直接进入主界面时标记为正常启动，避免 BaseActivity 触发重启逻辑
+        isNormalStart = true;
         initParams();
         // OKGo
         OkGoHelper.init(); //台标获取
