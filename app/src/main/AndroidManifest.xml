@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:tools="http://schemas.android.com/tools"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    tools:ignore="MissingLeanbackLauncher">
     <!-- 在 Android 11 中，应用程序需要声明它们要使用的其他应用程序的包名 -->
     <queries>
         <package android:name="idm.internet.download.manager.plus" />
@@ -35,22 +37,7 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:requestLegacyExternalStorage="true"
         android:usesCleartextTraffic="true">
-        <!-- 启动页移除，直接以 MainActivity 作为启动入口 -->
-        <activity
-            android:name=".ui.activity.SubscriptionActivity"
-            android:configChanges="orientation|screenSize"
-            android:exported="false" />
-        <activity
-            android:name=".ui.activity.VideoListActivity"
-            android:configChanges="orientation|screenSize"/>
-        <activity
-            android:name=".ui.activity.MovieFoldersActivity"
-            android:configChanges="orientation|screenSize"
-            android:exported="false"/>
-        <activity
-            android:name=".ui.activity.LocalPlayActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:exported="false" />
+
         <!-- 主界面 -->
         <activity
             android:name=".ui.activity.MainActivity"
@@ -61,30 +48,57 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- 搜索页 -->
+        <activity
+            android:name=".ui.activity.FastSearchActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            />
+
+        <!-- 订阅管理 -->
+        <activity
+            android:name=".ui.activity.SubscriptionActivity"
+            android:configChanges="orientation|screenSize"
+            android:exported="false" />
+        <!-- 观看历史 -->
+        <activity
+            android:name=".ui.activity.HistoryActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden" />
+        <!-- 收藏 -->
+        <activity
+            android:name=".ui.activity.CollectActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"/>
+        <!-- 直播 -->
         <activity
             android:name=".ui.activity.LiveActivity"
             android:launchMode="singleTop"
             android:configChanges="orientation|screenSize|keyboardHidden|uiMode|screenLayout"/>
-        <!-- 详情页 -->
+        <!-- 本地视频 -->
+        <activity
+            android:name=".ui.activity.MovieFoldersActivity"
+            android:configChanges="orientation|screenSize"
+            android:exported="false"/>
+        <!-- 视频列表 -->
+        <activity
+            android:name=".ui.activity.VideoListActivity"
+            android:configChanges="orientation|screenSize"/>
+        <!-- 本地播放 -->
+        <activity
+            android:name=".ui.activity.LocalPlayActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false" />
+        <!-- 播放链接 -->
         <activity
             android:name=".ui.activity.DetailActivity"
             android:supportsPictureInPicture="true"
             android:launchMode="singleTask"
             android:configChanges="screenSize|smallestScreenSize|screenLayout|orientation|uiMode"/>
-        <activity
-            android:name=".ui.activity.FastSearchActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            />
-        <!-- 设置页 -->
+        <!-- 设置 -->
         <activity
             android:name=".ui.activity.SettingComposeActivity"
             android:configChanges="orientation|screenSize|keyboardHidden"/>
-        <activity
-            android:name=".ui.activity.HistoryActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden" />
-        <activity
-            android:name=".ui.activity.CollectActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"/>
+
+
 
         <service android:name="com.android.cast.dlna.dmc.DLNACastService"/>
 

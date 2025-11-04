@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -198,43 +199,43 @@ private fun MyScreen(
                         title = "订阅管理",
                         onClick = onSubscription
                     )
-                    Divider(color = Color(0x22000000))
+                    HorizontalDivider(color = Color(0x22000000))
                     MenuItem(
                         iconRes = R.drawable.ic_history_48,
                         title = "观看历史",
                         onClick = onHistory
                     )
-                    Divider(color = Color(0x22000000))
+                    HorizontalDivider(color = Color(0x22000000))
                     MenuItem(
                         iconRes = R.drawable.ic_collect_48,
                         title = "收藏",
                         onClick = onFavorite
                     )
-                    Divider(color = Color(0x22000000))
+                    HorizontalDivider(color = Color(0x22000000))
                     MenuItem(
                         iconRes = R.drawable.ic_live,
                         title = "直播",
                         onClick = onLive
                     )
-                    Divider(color = Color(0x22000000))
+                    HorizontalDivider(color = Color(0x22000000))
                     MenuItem(
                         iconRes = R.drawable.ic_local_video_48,
                         title = "本地视频",
                         onClick = onLocal
                     )
-                    Divider(color = Color(0x22000000))
+                    HorizontalDivider(color = Color(0x22000000))
                     MenuItem(
                         iconRes = R.drawable.ic_copyright_48,
                         title = "播放链接",
                         onClick = onAddrPlay
                     )
-                    Divider(color = Color(0x22000000))
+                    HorizontalDivider(color = Color(0x22000000))
                     MenuItem(
                         iconRes = R.drawable.ic_about_48,
                         title = "关于",
                         onClick = onAbout
                     )
-                    Divider(color = Color(0x00000000))
+                    HorizontalDivider(color = Color(0x22000000))
                     MenuItem(
                         iconRes = R.drawable.ic_settings,
                         title = "设置",
