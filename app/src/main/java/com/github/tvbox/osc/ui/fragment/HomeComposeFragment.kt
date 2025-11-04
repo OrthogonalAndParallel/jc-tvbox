@@ -58,6 +58,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.recyclerview.widget.DiffUtil
+import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+import android.app.Activity
 
 class HomeComposeFragment : Fragment() {
 
@@ -189,12 +196,23 @@ class HomeComposeFragment : Fragment() {
         onHistory: () -> Unit,
         onCollect: () -> Unit,
     ) {
+        val container = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
         val colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
+            containerColor = container,
             titleContentColor = MaterialTheme.colorScheme.onSurface,
             navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
             actionIconContentColor = MaterialTheme.colorScheme.onSurface
         )
+
+        val view = LocalView.current
+        SideEffect {
+            val window = (view.context as? Activity)?.window
+            if (window != null) {
+                window.statusBarColor = container.toArgb()
+                val controller = WindowCompat.getInsetsController(window, window.decorView)
+                controller.isAppearanceLightStatusBars = container.luminance() > 0.5f
+            }
+        }
         CenterAlignedTopAppBar(
             modifier = Modifier.statusBarsPadding(),
             colors = colors,

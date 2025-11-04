@@ -1,3 +1,4 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
 package com.github.tvbox.osc.ui.activity
 
 import android.os.Bundle
@@ -17,18 +18,29 @@ import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.ComposeView
+import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import android.app.Activity
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.angcyo.tablayout.DslTabLayout
@@ -90,39 +102,74 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
         provideAnchor: (View) -> Unit,
     ) {
         var query by remember { mutableStateOf("") }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(Icons.Filled.ArrowBack, contentDescription = "返回")
-            }
-            OutlinedTextField(
-                value = query,
-                onValueChange = {
-                    query = it
-                    onQueryChange(it)
-                },
-                modifier = Modifier.weight(1f),
-                placeholder = { Text("搜索") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { onSearch(query) })
-            )
-            // Invisible anchor view for suggestion popup positioning
-            AndroidView(
-                modifier = Modifier.size(1.dp),
-                factory = { ctx -> View(ctx).also { provideAnchor(it) } }
-            )
-            IconButton(onClick = onFilter) {
-                Icon(Icons.Outlined.FilterList, contentDescription = "筛选")
-            }
-            IconButton(onClick = { onSearch(query) }) {
-                Icon(Icons.Filled.Search, contentDescription = "搜索")
+        val container = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+        val colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+            containerColor = container,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            navigationIconContentColor = MaterialTheme.colorScheme.onSurface,
+            actionIconContentColor = MaterialTheme.colorScheme.onSurface
+        )
+        val view = LocalView.current
+        SideEffect {
+            val window = (view.context as? Activity)?.window
+            if (window != null) {
+                window.statusBarColor = container.toArgb()
+                val controller = WindowCompat.getInsetsController(window, window.decorView)
+                controller.isAppearanceLightStatusBars = container.luminance() > 0.5f
             }
         }
+        CenterAlignedTopAppBar(
+            modifier = Modifier.statusBarsPadding(),
+            colors = colors,
+            navigationIcon = {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Filled.ArrowBack, contentDescription = "返回")
+                }
+            },
+            title = {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    TextField(
+                        value = query,
+                        onValueChange = {
+                            query = it
+                            onQueryChange(it)
+                        },
+                        modifier = Modifier.weight(1f),
+                        placeholder = { Text("搜索") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { onSearch(query) }),
+                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                        trailingIcon = {
+                            AndroidView(
+                                modifier = Modifier.size(1.dp),
+                                factory = { ctx -> View(ctx).also { provideAnchor(it) } }
+                            )
+                        },
+                        shape = RoundedCornerShape(24.dp),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            cursorColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            disabledIndicatorColor = Color.Transparent
+                        )
+                    )
+                }
+            },
+            actions = {
+                IconButton(onClick = onFilter) { Icon(Icons.Outlined.FilterList, contentDescription = "筛选") }
+                IconButton(onClick = { onSearch(query) }) { Icon(Icons.Filled.Search, contentDescription = "搜索") }
+            }
+        )
     }
     }
 
@@ -145,9 +192,7 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
     private var suggestAnchorView: View? = null
     private lateinit var historyFlow: com.zhy.view.flowlayout.TagFlowLayout
     private lateinit var hotFlow: com.zhy.view.flowlayout.TagFlowLayout
-    private var pendingShowResults: Boolean = false
     private var pendingInitTabs: Boolean = false
-    private var pendingFilterKeyToApply: String? = null
 
     override fun init() {
         sourceViewModel = ViewModelProvider(this).get(SourceViewModel::class.java)
@@ -282,24 +327,16 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
                                         LinearLayout.LayoutParams.MATCH_PARENT
                                     ))
                                     // Avoid wrapping this view with LoadSir inside factory to prevent parent conflicts
-                                    if (pendingShowResults) {
-                                        // ensure initial visibility if a search was triggered before compose of lists
-                                        mGridView.visibility = View.INVISIBLE
+                                }
+                            },
+                            update = {
+                                if (this@FastSearchActivity::mGridView.isInitialized && this@FastSearchActivity::mGridViewFilter.isInitialized) {
+                                    if (isFilterMode) {
+                                        mGridView.visibility = View.GONE
+                                        mGridViewFilter.visibility = View.VISIBLE
+                                    } else {
+                                        mGridView.visibility = View.VISIBLE
                                         mGridViewFilter.visibility = View.GONE
-                                        pendingShowResults = false
-                                    }
-                                    pendingFilterKeyToApply?.let { key ->
-                                        if (key.isEmpty()) {
-                                            mGridView.visibility = View.VISIBLE
-                                            mGridViewFilter.visibility = View.GONE
-                                            isFilterMode = false
-                                        } else {
-                                            mGridView.visibility = View.GONE
-                                            mGridViewFilter.visibility = View.VISIBLE
-                                            isFilterMode = true
-                                            searchFilterKey = key
-                                        }
-                                        pendingFilterKeyToApply = null
                                     }
                                 }
                             }
@@ -367,15 +404,8 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
     }
 
     private fun filterResult(spName: String) {
-        // RecyclerViews may not be ready yet; defer
-        if (!this::mGridView.isInitialized || !this::mGridViewFilter.isInitialized) {
-            pendingFilterKeyToApply = if (spName === "全部显示") "" else spNames[spName]
-            return
-        }
         if (spName === "全部显示") {
             isFilterMode = false
-            mGridView.visibility = View.VISIBLE
-            mGridViewFilter.visibility = View.GONE
             return
         }
         val key = spNames[spName]
@@ -385,8 +415,6 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
         searchFilterKey = key
         val list: List<Movie.Video> = (resultVods[key]) ?: emptyList()
         searchAdapterFilter.setNewData(list)
-        mGridView.visibility = View.GONE
-        mGridViewFilter.visibility = View.VISIBLE
     }
 
     private fun initData() {
@@ -467,6 +495,9 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
                 })
             suggestAnchorView?.let { anchor ->
                 builder.atView(anchor).notDismissWhenTouchInView(anchor)
+                val extra = (4 * this@FastSearchActivity.resources.displayMetrics.density).toInt()
+                val dy = anchor.height / 2 + extra
+                builder.offsetY(dy)
             }
             builder.asCustom(mSearchSuggestionsDialog).show()
         } else { // 不为空说明弹窗为打开状态(关闭就置空了).直接刷新数据
@@ -584,19 +615,13 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
         if (!Hawk.get(HawkConfig.PRIVATE_BROWSING, false)) { //无痕浏览不存搜索历史
             saveSearchHistory(title)
         }
-        // Switch to results area; lists may not yet be composed when triggered from history/hot
+        // 切换为结果区域，由 Compose update 控制显示隐藏
         hideHotAndHistorySearch(true)
-        pendingShowResults = true
         KeyboardUtils.hideSoftInput(this)
         cancel()
         showLoading()
         searchTitle = title
         //fenci();
-        if (this::mGridView.isInitialized && this::mGridViewFilter.isInitialized) {
-            mGridView.visibility = View.INVISIBLE
-            mGridViewFilter.visibility = View.GONE
-            pendingShowResults = false
-        }
         searchAdapter.setNewData(ArrayList())
         searchAdapterFilter.setNewData(ArrayList())
         resultVods.clear()

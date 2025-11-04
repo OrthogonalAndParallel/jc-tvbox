@@ -10,12 +10,16 @@ import androidx.compose.runtime.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.ui.Modifier
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.core.view.WindowCompat
+import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.activity.compose.setContent
+import androidx.compose.ui.Modifier
 import androidx.viewpager2.widget.ViewPager2
 import androidx.viewpager2.adapter.FragmentStateAdapter
 
@@ -32,6 +36,11 @@ class MainActivity : BaseActivity() {
 
     override fun init() {
         useCacheConfig = intent.extras?.getBoolean(IntentKey.CACHE_CONFIG_CHANGED, false)?:false
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = AndroidColor.TRANSPARENT
+        window.navigationBarColor = AndroidColor.TRANSPARENT
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        controller.isAppearanceLightNavigationBars = true
     }
 
     override fun getLayoutResID(): Int = -1
@@ -43,8 +52,12 @@ class MainActivity : BaseActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     var current by remember { mutableStateOf(0) }
                     Scaffold(
+                        contentWindowInsets = WindowInsets(0),
                         bottomBar = {
-                            NavigationBar(modifier = Modifier.fillMaxWidth()) {
+                            NavigationBar(
+                                modifier = Modifier.fillMaxWidth(),
+                                windowInsets = WindowInsets(0)
+                            ) {
                                 NavigationBarItem(
                                     selected = current == 0,
                                     onClick = {
