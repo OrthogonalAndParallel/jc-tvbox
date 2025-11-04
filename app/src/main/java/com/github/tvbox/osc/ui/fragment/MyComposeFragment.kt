@@ -33,6 +33,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.painterResource
@@ -43,7 +47,6 @@ import com.blankj.utilcode.util.ClipboardUtils
 import com.blankj.utilcode.util.ToastUtils
 import com.github.tvbox.osc.R
 import com.github.tvbox.osc.ui.activity.*
-import com.github.tvbox.osc.ui.dialog.AboutDialog
 import com.github.tvbox.osc.util.Utils
 import com.hjq.permissions.OnPermissionCallback
 import com.hjq.permissions.Permission
@@ -63,6 +66,7 @@ class MyComposeFragment : Fragment() {
         val composeView = ComposeView(requireContext())
         composeView.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         composeView.setContent {
+            var showAbout by remember { mutableStateOf(false) }
             Surface(color = MaterialTheme.colorScheme.background) {
                 MyScaffold(
                     onSubscription = { jumpActivity(SubscriptionActivity::class.java) },
@@ -90,13 +94,18 @@ class MyComposeFragment : Fragment() {
                             }, null, R.layout.dialog_input)
                             .show()
                     },
-                    onAbout = {
-                        XPopup.Builder(requireActivity())
-                            .asCustom(AboutDialog(requireActivity()))
-                            .show()
-                    },
+                    onAbout = { showAbout = true },
                     onSetting = { jumpActivity(SettingComposeActivity::class.java) }
                 )
+                if (showAbout) {
+                    val sheetState = androidx.compose.material3.rememberModalBottomSheetState()
+                    androidx.compose.material3.ModalBottomSheet(
+                        onDismissRequest = { showAbout = false },
+                        sheetState = sheetState
+                    ) {
+                        AboutBottomSheetContent(onClose = { showAbout = false })
+                    }
+                }
             }
         }
         return composeView
@@ -145,6 +154,47 @@ class MyComposeFragment : Fragment() {
             listOf("smb", "http", "https", "thunder", "magnet", "ed2k", "mitv", "jianpian").contains(scheme)
         } catch (e: Exception) {
             false
+        }
+    }
+}
+
+@Composable
+private fun AboutBottomSheetContent(onClose: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+    ) {
+        Text(
+            text = "关于",
+            style = MaterialTheme.typography.titleLarge
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = "JCBox - 开源影视聚合播放器",
+            style = MaterialTheme.typography.bodyMedium
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "项目地址: https://github.com/OrthogonalAndParallel/TVBoxOS-Mobile",
+            style = MaterialTheme.typography.bodySmall
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider(color = DividerDefaults.color)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = "关闭",
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .padding(8.dp)
+                    .clickable { onClose() }
+            )
         }
     }
 }
