@@ -24,13 +24,6 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.blankj.utilcode.util.ToastUtils
-import com.blankj.utilcode.util.AppUtils
-import android.os.Environment
-import org.json.JSONObject
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.io.File
-import android.content.SharedPreferences
 import androidx.lifecycle.lifecycleScope
 import com.github.tvbox.osc.R
 import com.github.tvbox.osc.base.BaseActivity
@@ -606,7 +599,8 @@ private fun SwitchItem(label: String, checked: Boolean, onCheckedChange: (Boolea
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp),
+            .height(56.dp)
+            .padding(horizontal = 24.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(text = label, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)

@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -96,7 +96,6 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
     @Composable
     private fun FastSearchTopBar(
         onBack: () -> Unit,
-        onFilter: () -> Unit,
         onSearch: (String) -> Unit,
         onQueryChange: (String) -> Unit,
         provideAnchor: (View) -> Unit,
@@ -145,29 +144,33 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = { onSearch(query) }),
-                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                         trailingIcon = {
-                            AndroidView(
-                                modifier = Modifier.size(1.dp),
-                                factory = { ctx -> View(ctx).also { provideAnchor(it) } }
-                            )
+                            Row {
+                                if (query.isNotEmpty()) {
+                                    IconButton(onClick = {
+                                        query = ""
+                                        onQueryChange("")
+                                    }) {
+                                        Icon(Icons.Filled.Close, contentDescription = "清空")
+                                    }
+                                }
+                                AndroidView(
+                                    modifier = Modifier.size(1.dp),
+                                    factory = { ctx -> View(ctx).also { provideAnchor(it) } }
+                                )
+                            }
                         },
-                        shape = RoundedCornerShape(24.dp),
                         colors = TextFieldDefaults.colors(
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            cursorColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            disabledContainerColor = Color.Transparent,
+                            cursorColor = MaterialTheme.colorScheme.onSurface,
                             focusedIndicatorColor = Color.Transparent,
                             unfocusedIndicatorColor = Color.Transparent,
                             disabledIndicatorColor = Color.Transparent
                         )
                     )
                 }
-            },
-            actions = {
-                IconButton(onClick = onFilter) { Icon(Icons.Outlined.FilterList, contentDescription = "筛选") }
-                IconButton(onClick = { onSearch(query) }) { Icon(Icons.Filled.Search, contentDescription = "搜索") }
             }
         )
     }
@@ -220,7 +223,6 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
                 Column(modifier = Modifier.fillMaxSize()) {
                     FastSearchTopBar(
                         onBack = { finish() },
-                        onFilter = { filterSearchSource() },
                         onSearch = { query -> search(query) },
                         onQueryChange = { text ->
                             if (text.isEmpty()) {
