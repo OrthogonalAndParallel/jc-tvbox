@@ -11,6 +11,10 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.Alignment
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
@@ -33,6 +37,7 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
@@ -41,7 +46,7 @@ import android.app.Activity
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.angcyo.tablayout.DslTabLayout
+// removed DslTabLayout, use Compose list
 import com.blankj.utilcode.util.KeyboardUtils
 import com.blankj.utilcode.util.LogUtils
 import com.blankj.utilcode.util.ToastUtils
@@ -171,19 +176,19 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
     private var searchAdapterFilter = FastSearchAdapter()
     private var searchTitle: String? = ""
     private var spNames = HashMap<String, String>()
-    private var isFilterMode = false
-    private var searchFilterKey: String? = "" // 过滤的key
+    private val isFilterModeState = mutableStateOf(false)
+    private val searchFilterKeyState = mutableStateOf<String?>(null) // 过滤的key
     private var resultVods = HashMap<String, MutableList<Movie.Video>>()
     private var pauseRunnable: MutableList<Runnable>? = null
-    // Views hosted via AndroidView inside Compose
-    private lateinit var tabLayout: DslTabLayout
+    // Left source names for Compose list
+    private val sourceNames = mutableStateListOf<String>()
     private lateinit var mGridView: TvRecyclerView
     private lateinit var mGridViewFilter: TvRecyclerView
     private lateinit var llLayout: LinearLayout
     private val showSuggest = mutableStateOf(true)
     private lateinit var historyFlow: com.zhy.view.flowlayout.TagFlowLayout
     private lateinit var hotFlow: com.zhy.view.flowlayout.TagFlowLayout
-    private var pendingInitTabs: Boolean = false
+    private var pendingInitTabs: Boolean = false // legacy no-op
     private val suggestions = mutableStateListOf<String>()
 
     override fun init() {
@@ -290,27 +295,34 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
                             )
                         }
                     } else {
-                        Row(modifier = Modifier.fillMaxSize()) {
-                        // Left: DslTabLayout
-                        AndroidView(
-                            modifier = Modifier.width(120.dp).fillMaxHeight(),
-                            factory = { ctx ->
-                                DslTabLayout(ctx).also { tl ->
-                                    tabLayout = tl
-                                    tl.configTabLayoutConfig {
-                                        onSelectViewChange = { _, selectViewList, _, _ ->
-                                            val tvItem: TextView = selectViewList.first() as TextView
-                                            filterResult(tvItem.text.toString())
-                                        }
-                                    }
-                                    if (pendingInitTabs) {
-                                        pendingInitTabs = false
-                                        // now safe to build tabs
-                                        searchResult()
-                                    }
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        // Left: Compose vertical source list
+                        androidx.compose.foundation.lazy.LazyColumn(
+                            modifier = Modifier.width(120.dp).fillMaxHeight()
+                        ) {
+                            items(sourceNames.size) { idx ->
+                                val name = sourceNames[idx]
+                                val selected = if (isFilterModeState.value) name != "全部显示" && spNames[name] == searchFilterKeyState.value else name == "全部显示"
+                                val shape = androidx.compose.foundation.shape.RoundedCornerShape(topEnd = 999.dp, bottomEnd = 999.dp)
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(48.dp)
+                                        .clip(shape)
+                                        .background(if (selected) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent)
+                                        .clickable { filterResult(name) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = name,
+                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = if (selected) androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Normal,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                 }
                             }
-                        )
+                        }
                         // Right: container with two RecyclerViews
                         AndroidView(
                             modifier = Modifier.weight(1f).fillMaxHeight().padding(horizontal = 10.dp),
@@ -344,7 +356,7 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
                             },
                             update = {
                                 if (this@FastSearchActivity::mGridView.isInitialized && this@FastSearchActivity::mGridViewFilter.isInitialized) {
-                                    if (isFilterMode) {
+                                    if (isFilterModeState.value) {
                                         mGridView.visibility = View.GONE
                                         mGridViewFilter.visibility = View.VISIBLE
                                     } else {
@@ -417,15 +429,15 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
     }
 
     private fun filterResult(spName: String) {
-        if (spName === "全部显示") {
-            isFilterMode = false
+        if (spName == "全部显示") {
+            isFilterModeState.value = false
             return
         }
         val key = spNames[spName]
         if (key.isNullOrEmpty()) return
-        if (searchFilterKey === key) return
-        isFilterMode = true
-        searchFilterKey = key
+        if (searchFilterKeyState.value == key) return
+        isFilterModeState.value = true
+        searchFilterKeyState.value = key
         val list: List<Movie.Video> = (resultVods[key]) ?: emptyList()
         searchAdapterFilter.setNewData(list)
     }
@@ -609,34 +621,17 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
         searchAdapter.setNewData(ArrayList())
         searchAdapterFilter.setNewData(ArrayList())
         resultVods.clear()
-        searchFilterKey = ""
-        isFilterMode = false
+        searchFilterKeyState.value = null
+        isFilterModeState.value = false
         spNames.clear()
-        if (this::tabLayout.isInitialized) {
-            tabLayout.removeAllViews()
-        }
         searchResult()
     }
 
     private var searchExecutorService: ExecutorService? = null
     private val allRunCount = AtomicInteger(0)
-    private fun getSiteTextView(text: String): TextView {
-        val textView = TextView(this)
-        textView.text = text
-        textView.gravity = Gravity.CENTER
-        val params = DslTabLayout.LayoutParams(-2, -2)
-        params.topMargin = 20
-        params.bottomMargin = 20
-        textView.setPadding(20, 10, 20, 10)
-        textView.layoutParams = params
-        return textView
-    }
+    // DslTabLayout removed; using Compose list instead
 
     private fun searchResult() {
-        if (!this::tabLayout.isInitialized) {
-            pendingInitTabs = true
-            return
-        }
         try {
             if (searchExecutorService != null) {
                 searchExecutorService!!.shutdownNow()
@@ -657,8 +652,9 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
         searchRequestList.remove(home)
         searchRequestList.add(0, home)
         val siteKey = ArrayList<String>()
-        tabLayout.addView(getSiteTextView("全部显示"))
-        tabLayout.setCurrentItem(0, true, false)
+        // build left source names
+        sourceNames.clear()
+        sourceNames.add("全部显示")
         for (bean: SourceBean in searchRequestList) {
             if (!bean.isSearchable) {
                 continue
@@ -668,6 +664,7 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
             }
             siteKey.add(bean.key)
             spNames[bean.name] = bean.key
+            sourceNames.add(bean.name)
             allRunCount.incrementAndGet()
         }
         for (key: String in siteKey) {
@@ -689,18 +686,14 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
         try {
             var name = ""
             for (n: String in spNames.keys) {
-                if ((spNames[n] == key)) {
+                if (spNames[n] == key) {
                     name = n
                 }
             }
-            if ((name == "")) return key
-            for (i in 0 until tabLayout.childCount) {
-                val item = tabLayout.getChildAt(i) as TextView
-                if ((name == item.text.toString())) {
-                    return key
-                }
+            if (name.isEmpty()) return key
+            if (!sourceNames.contains(name)) {
+                sourceNames.add(name)
             }
-            tabLayout.addView(getSiteTextView(name))
             return key
         } catch (e: Exception) {
             return key
@@ -738,8 +731,14 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
                 searchAdapter.addData(data)
             } else {
                 showSuccess()
-                if (!isFilterMode) mGridView.visibility = View.VISIBLE
+                if (!isFilterModeState.value) mGridView.visibility = View.VISIBLE
                 searchAdapter.setNewData(data)
+            }
+            // If in filter mode, update the filter adapter with the active source list
+            if (isFilterModeState.value) {
+                val activeKey = searchFilterKeyState.value
+                val list: List<Movie.Video> = if (activeKey != null) (resultVods[activeKey] ?: emptyList()) else emptyList()
+                searchAdapterFilter.setNewData(list)
             }
         }
         val count = allRunCount.decrementAndGet()
