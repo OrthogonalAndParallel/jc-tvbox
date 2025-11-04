@@ -1,3 +1,4 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
 package com.github.tvbox.osc.ui.fragment
 
 import android.app.Activity
@@ -5,12 +6,10 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.text.TextUtils
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -18,24 +17,25 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.DividerDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.Fragment
@@ -64,7 +64,7 @@ class MyComposeFragment : Fragment() {
         composeView.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         composeView.setContent {
             Surface(color = MaterialTheme.colorScheme.background) {
-                MyScreen(
+                MyScaffold(
                     onSubscription = { jumpActivity(SubscriptionActivity::class.java) },
                     onHistory = { jumpActivity(HistoryActivity::class.java) },
                     onFavorite = { jumpActivity(CollectActivity::class.java) },
@@ -150,7 +150,52 @@ class MyComposeFragment : Fragment() {
 }
 
 @Composable
+@androidx.compose.material3.ExperimentalMaterial3Api
+private fun MyScaffold(
+    onSubscription: () -> Unit,
+    onHistory: () -> Unit,
+    onFavorite: () -> Unit,
+    onLive: () -> Unit,
+    onLocal: () -> Unit,
+    onAddrPlay: () -> Unit,
+    onAbout: () -> Unit,
+    onSetting: () -> Unit,
+) {
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                modifier = Modifier.statusBarsPadding(),
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp),
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                ),
+                title = {
+                    Text(
+                        text = "JCBox",
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1
+                    )
+                }
+            )
+        }
+    ) { innerPadding ->
+        MyScreen(
+            modifier = Modifier.padding(innerPadding),
+            onSubscription = onSubscription,
+            onHistory = onHistory,
+            onFavorite = onFavorite,
+            onLive = onLive,
+            onLocal = onLocal,
+            onAddrPlay = onAddrPlay,
+            onAbout = onAbout,
+            onSetting = onSetting
+        )
+    }
+}
+
+@Composable
 private fun MyScreen(
+    modifier: Modifier = Modifier,
     onSubscription: () -> Unit,
     onHistory: () -> Unit,
     onFavorite: () -> Unit,
@@ -161,25 +206,10 @@ private fun MyScreen(
     onSetting: () -> Unit,
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
-            .padding(top = 40.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            verticalAlignment = Alignment.Bottom
-        ) {
-            Text(
-                text = "JCBox",
-                fontSize = 22.sp,
-                color = Color.Black,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.padding(start = 20.dp, bottom = 4.dp)
-            )
-            Spacer(modifier = Modifier.weight(1f))
-        }
+        // Content
 
         val scroll = rememberScrollState()
         Column(
@@ -191,7 +221,7 @@ private fun MyScreen(
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5))
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Column(modifier = Modifier.padding(vertical = 8.dp)) {
                     MenuItem(
@@ -199,43 +229,43 @@ private fun MyScreen(
                         title = "订阅管理",
                         onClick = onSubscription
                     )
-                    HorizontalDivider(color = Color(0x22000000))
+                    HorizontalDivider(color = DividerDefaults.color)
                     MenuItem(
                         iconRes = R.drawable.ic_history_48,
                         title = "观看历史",
                         onClick = onHistory
                     )
-                    HorizontalDivider(color = Color(0x22000000))
+                    HorizontalDivider(color = DividerDefaults.color)
                     MenuItem(
                         iconRes = R.drawable.ic_collect_48,
                         title = "收藏",
                         onClick = onFavorite
                     )
-                    HorizontalDivider(color = Color(0x22000000))
+                    HorizontalDivider(color = DividerDefaults.color)
                     MenuItem(
                         iconRes = R.drawable.ic_live,
                         title = "直播",
                         onClick = onLive
                     )
-                    HorizontalDivider(color = Color(0x22000000))
+                    HorizontalDivider(color = DividerDefaults.color)
                     MenuItem(
                         iconRes = R.drawable.ic_local_video_48,
                         title = "本地视频",
                         onClick = onLocal
                     )
-                    HorizontalDivider(color = Color(0x22000000))
+                    HorizontalDivider(color = DividerDefaults.color)
                     MenuItem(
                         iconRes = R.drawable.ic_copyright_48,
                         title = "播放链接",
                         onClick = onAddrPlay
                     )
-                    HorizontalDivider(color = Color(0x22000000))
+                    HorizontalDivider(color = DividerDefaults.color)
                     MenuItem(
                         iconRes = R.drawable.ic_about_48,
                         title = "关于",
                         onClick = onAbout
                     )
-                    HorizontalDivider(color = Color(0x22000000))
+                    HorizontalDivider(color = DividerDefaults.color)
                     MenuItem(
                         iconRes = R.drawable.ic_settings,
                         title = "设置",
@@ -268,7 +298,7 @@ private fun MenuItem(
         Text(
             text = title,
             fontSize = 16.sp,
-            color = Color(0xFF222222),
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier
                 .padding(start = 20.dp)
         )
@@ -278,7 +308,8 @@ private fun MenuItem(
             contentDescription = null,
             modifier = Modifier
                 .size(26.dp)
-                .alpha(0.75f)
+                .alpha(0.9f),
+            colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onSurfaceVariant)
         )
     }
 }
