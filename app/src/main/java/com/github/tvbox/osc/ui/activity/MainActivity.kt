@@ -3,7 +3,7 @@ package com.github.tvbox.osc.ui.activity
 import androidx.fragment.app.Fragment
 import com.github.tvbox.osc.base.BaseActivity
 import com.github.tvbox.osc.constant.IntentKey
-import com.github.tvbox.osc.ui.fragment.HomeFragment
+import com.github.tvbox.osc.ui.fragment.HomeComposeFragment
 import com.github.tvbox.osc.ui.fragment.MyComposeFragment
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,7 +24,7 @@ import androidx.viewpager2.adapter.FragmentStateAdapter
  */
 class MainActivity : BaseActivity() {
 
-    var fragments = listOf(HomeFragment(), MyComposeFragment())
+    var fragments = listOf(HomeComposeFragment(), MyComposeFragment())
 
     var useCacheConfig = false
 
