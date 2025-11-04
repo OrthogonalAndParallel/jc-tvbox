@@ -27,6 +27,9 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +70,8 @@ class MyComposeFragment : Fragment() {
         composeView.setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
         composeView.setContent {
             var showAbout by remember { mutableStateOf(false) }
+            var showAddr by remember { mutableStateOf(false) }
+            var addrText by remember { mutableStateOf("") }
             Surface(color = MaterialTheme.colorScheme.background) {
                 MyScaffold(
                     onSubscription = { jumpActivity(SubscriptionActivity::class.java) },
@@ -81,22 +86,42 @@ class MyComposeFragment : Fragment() {
                         }
                     },
                     onAddrPlay = {
-                        val prefill = ClipboardUtils.getText()?.toString()?.takeIf { isPush(it) } ?: ""
-                        XPopup.Builder(requireContext())
-                            .asInputConfirm("播放", "", prefill, "地址", { text ->
+                        addrText = ClipboardUtils.getText()?.toString()?.takeIf { isPush(it) } ?: ""
+                        showAddr = true
+                    },
+                    onAbout = { showAbout = true },
+                    onSetting = { jumpActivity(SettingComposeActivity::class.java) }
+                )
+                if (showAddr) {
+                    AlertDialog(
+                        onDismissRequest = { showAddr = false },
+                        title = { Text("播放") },
+                        text = {
+                            TextField(
+                                value = addrText,
+                                onValueChange = { addrText = it },
+                                placeholder = { Text("地址") },
+                                singleLine = true,
+                            )
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                val text = addrText
                                 if (!text.isNullOrEmpty()) {
                                     val newIntent = Intent(requireContext(), DetailActivity::class.java)
                                     newIntent.putExtra("id", text)
                                     newIntent.putExtra("sourceKey", "push_agent")
                                     newIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
                                     startActivity(newIntent)
+                                    showAddr = false
                                 }
-                            }, null, R.layout.dialog_input)
-                            .show()
-                    },
-                    onAbout = { showAbout = true },
-                    onSetting = { jumpActivity(SettingComposeActivity::class.java) }
-                )
+                            }) { Text("确定") }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showAddr = false }) { Text("取消") }
+                        }
+                    )
+                }
                 if (showAbout) {
                     val sheetState = androidx.compose.material3.rememberModalBottomSheetState()
                     androidx.compose.material3.ModalBottomSheet(
