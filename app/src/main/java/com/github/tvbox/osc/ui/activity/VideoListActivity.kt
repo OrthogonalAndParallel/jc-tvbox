@@ -3,37 +3,59 @@ package com.github.tvbox.osc.ui.activity
 import android.os.Bundle
 import android.os.Handler
 import android.view.View
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
-import com.blankj.utilcode.util.ColorUtils
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.blankj.utilcode.util.FileUtils
 import com.blankj.utilcode.util.GsonUtils
 import com.blankj.utilcode.util.SPUtils
 import com.chad.library.adapter.base.BaseQuickAdapter
-import com.github.tvbox.osc.R
-import com.github.tvbox.osc.base.BaseVbActivity
+import com.github.tvbox.osc.base.BaseActivity
 import com.github.tvbox.osc.bean.VideoInfo
 import com.github.tvbox.osc.constant.CacheConst
-import com.github.tvbox.osc.databinding.ActivityMovieFoldersBinding
 import com.github.tvbox.osc.event.RefreshEvent
 import com.github.tvbox.osc.ui.adapter.LocalVideoAdapter
-import com.github.tvbox.osc.util.FastClickCheckUtil
 import com.github.tvbox.osc.util.Utils
-import com.lxj.xpopup.XPopup
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.stream.Collectors
 
-class VideoListActivity : BaseVbActivity<ActivityMovieFoldersBinding>() {
+class VideoListActivity : BaseActivity() {
     private var mBucketDisplayName = ""
     private var mLocalVideoAdapter = LocalVideoAdapter()
     private var mSelectedCount = 0
+
     override fun init() {
+        mBucketDisplayName = intent.extras?.getString("bucketDisplayName") ?: ""
 
-        mBucketDisplayName = intent.extras?.getString("bucketDisplayName")?:""
-
-        mBinding.titleBar.setTitle(mBucketDisplayName)
-        mBinding.rv.setAdapter(mLocalVideoAdapter)
         mLocalVideoAdapter.onItemClickListener =
             BaseQuickAdapter.OnItemClickListener { adapter: BaseQuickAdapter<*, *>, view: View?, position: Int ->
                 val videoInfo = adapter.getItem(position) as VideoInfo?
@@ -42,7 +64,6 @@ class VideoListActivity : BaseVbActivity<ActivityMovieFoldersBinding>() {
                     mLocalVideoAdapter.notifyDataSetChanged()
                 } else {
                     val bundle = Bundle()
-                    //                    bundle.putString("path",videoInfo.getPath());
                     bundle.putString("videoList", GsonUtils.toJson(mLocalVideoAdapter.data))
                     bundle.putInt("position", position)
                     jumpActivity(LocalPlayActivity::class.java, bundle)
@@ -53,72 +74,17 @@ class VideoListActivity : BaseVbActivity<ActivityMovieFoldersBinding>() {
                 toggleListSelectMode(true)
                 val videoInfo = adapter.getItem(position) as VideoInfo?
                 videoInfo!!.isChecked = true
-                mLocalVideoAdapter!!.notifyDataSetChanged()
+                mLocalVideoAdapter.notifyDataSetChanged()
                 true
             }
-
-        mBinding.tvAllCheck.setOnClickListener { view: View? ->  //全选
-            FastClickCheckUtil.check(view)
-            for (item in mLocalVideoAdapter.data) {
-                item.isChecked = true
-            }
-            mLocalVideoAdapter!!.notifyDataSetChanged()
-        }
-
-        mBinding.tvCancelAllChecked.setOnClickListener { view: View? ->  //取消全选
-            FastClickCheckUtil.check(view)
-            cancelAll()
-        }
-
         mLocalVideoAdapter.setOnSelectCountListener { count: Int ->
             mSelectedCount = count
-            if (mSelectedCount > 0) {
-                mBinding.tvDelete.isEnabled = true
-                mBinding.tvDelete.setTextColor(ColorUtils.getColor(R.color.colorPrimary))
-            } else {
-                mBinding.tvDelete.isEnabled = false
-                mBinding.tvDelete.setTextColor(ColorUtils.getColor(R.color.disable_text))
-            }
-        }
-
-        mBinding.tvDelete.setOnClickListener { view: View? ->
-            FastClickCheckUtil.check(view)
-            XPopup.Builder(this)
-                .isDarkTheme(Utils.isDarkTheme())
-                .asConfirm("提示", "确定删除所选视频吗？") {
-                    showLoadingDialog()
-                    lifecycleScope.launch(Dispatchers.IO) {
-                        val data = mLocalVideoAdapter.data
-                        val deleteList: MutableList<VideoInfo> = ArrayList()
-                        for (item in data) {
-                            if (item.isChecked) {
-                                deleteList.add(item)
-                                if (FileUtils.delete(item.path)) {
-                                    // 删除缓存的影片时长、进度
-                                    SPUtils.getInstance(CacheConst.VIDEO_DURATION_SP).remove(item.path)
-                                    SPUtils.getInstance(CacheConst.VIDEO_PROGRESS_SP).remove(item.path)
-                                    // 文件增删需要通知系统扫描,否则删除文件后还能查出来
-                                    // 这个工具类直接传文件路径不知道为啥通知失败,手动获取一下
-                                    FileUtils.notifySystemToScan(FileUtils.getDirName(item.path))
-                                }
-                            }
-                        }
-                        data.removeAll(deleteList)
-
-                        withContext(Dispatchers.Main){
-                            dismissLoadingDialog()
-                            mLocalVideoAdapter.notifyDataSetChanged()
-                            toggleListSelectMode(false)
-                        }
-                    }
-                }.show()
         }
     }
 
     private fun toggleListSelectMode(open: Boolean) {
         mLocalVideoAdapter.setSelectMode(open)
-        mBinding.llMenu.visibility = if (open) View.VISIBLE else View.GONE
-        if (!open) { // 开启时设置了当前item为选中状态已经刷新了.所以只在关闭刷新列表
+        if (!open) {
             mLocalVideoAdapter.notifyDataSetChanged()
         }
     }
@@ -139,9 +105,6 @@ class VideoListActivity : BaseVbActivity<ActivityMovieFoldersBinding>() {
         groupVideos()
     }
 
-    /**
-     * 根据文件夹名字筛选视频
-     */
     private fun groupVideos() {
         val videoList = Utils.getVideoList()
         val collect = videoList.stream()
@@ -159,6 +122,119 @@ class VideoListActivity : BaseVbActivity<ActivityMovieFoldersBinding>() {
             }
         } else {
             super.onBackPressed()
+        }
+    }
+
+    override fun getLayoutResID(): Int = -1
+
+    @OptIn(ExperimentalMaterial3Api::class)
+    override fun initVb() {
+        setContent {
+            MaterialTheme {
+                Surface(modifier = Modifier.fillMaxSize()) {
+                    val container = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+                    val colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = container,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface,
+                        actionIconContentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                    val view = LocalView.current
+                    SideEffect {
+                        val window = (view.context as? android.app.Activity)?.window
+                        if (window != null) {
+                            window.statusBarColor = container.toArgb()
+                            val controller = WindowCompat.getInsetsController(window, window.decorView)
+                            controller.isAppearanceLightStatusBars = container.luminance() > 0.5f
+                        }
+                    }
+
+                    val showDelete = remember { mutableStateOf(false) }
+
+                    if (showDelete.value) {
+                        AlertDialog(
+                            onDismissRequest = { showDelete.value = false },
+                            title = { Text("提示") },
+                            text = { Text("确定删除所选视频吗？") },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    showDelete.value = false
+                                    showLoadingDialog()
+                                    lifecycleScope.launch(Dispatchers.IO) {
+                                        val data = mLocalVideoAdapter.data
+                                        val deleteList: MutableList<VideoInfo> = ArrayList()
+                                        for (item in data) {
+                                            if (item.isChecked) {
+                                                deleteList.add(item)
+                                                if (FileUtils.delete(item.path)) {
+                                                    SPUtils.getInstance(CacheConst.VIDEO_DURATION_SP).remove(item.path)
+                                                    SPUtils.getInstance(CacheConst.VIDEO_PROGRESS_SP).remove(item.path)
+                                                    FileUtils.notifySystemToScan(FileUtils.getDirName(item.path))
+                                                }
+                                            }
+                                        }
+                                        data.removeAll(deleteList)
+                                        withContext(Dispatchers.Main) {
+                                            dismissLoadingDialog()
+                                            mLocalVideoAdapter.notifyDataSetChanged()
+                                            toggleListSelectMode(false)
+                                        }
+                                    }
+                                }) { Text("确定") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showDelete.value = false }) { Text("取消") }
+                            }
+                        )
+                    }
+
+                    Scaffold(
+                        topBar = {
+                            CenterAlignedTopAppBar(
+                                modifier = Modifier.statusBarsPadding(),
+                                colors = colors,
+                                title = { Text(text = mBucketDisplayName) }
+                            )
+                        },
+                        bottomBar = {
+                            if (mLocalVideoAdapter.isSelectMode) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    TextButton(onClick = {
+                                        for (item in mLocalVideoAdapter.data) item.isChecked = true
+                                        mLocalVideoAdapter.notifyDataSetChanged()
+                                    }) { Text("全选") }
+                                    TextButton(onClick = {
+                                        cancelAll()
+                                    }) { Text("取消全选") }
+                                    TextButton(onClick = {
+                                        if (mSelectedCount > 0) showDelete.value = true
+                                    }, enabled = mSelectedCount > 0) { Text("删除") }
+                                }
+                            }
+                        }
+                    ) { innerPadding ->
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(innerPadding)
+                        ) {
+                            AndroidView(
+                                modifier = Modifier.fillMaxSize(),
+                                factory = { ctx ->
+                                    androidx.recyclerview.widget.RecyclerView(ctx).apply {
+                                        layoutManager = LinearLayoutManager(ctx)
+                                        adapter = mLocalVideoAdapter
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
