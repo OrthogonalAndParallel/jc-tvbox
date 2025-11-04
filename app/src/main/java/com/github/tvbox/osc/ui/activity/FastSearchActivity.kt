@@ -1,72 +1,129 @@
 package com.github.tvbox.osc.ui.activity
 
-import android.content.DialogInterface
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextUtils
 import android.text.TextWatcher
 import android.view.Gravity
-import android.view.KeyEvent
-import android.view.LayoutInflater
 import android.view.View
-import android.view.inputmethod.EditorInfo
+import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.ComposeView
 import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.angcyo.tablayout.DslTabLayout
-import com.angcyo.tablayout.DslTabLayoutConfig
 import com.blankj.utilcode.util.KeyboardUtils
 import com.blankj.utilcode.util.LogUtils
 import com.blankj.utilcode.util.ToastUtils
-import com.chad.library.adapter.base.BaseQuickAdapter
 import com.github.catvod.crawler.JsLoader
 import com.github.tvbox.osc.R
 import com.github.tvbox.osc.api.ApiConfig
-import com.github.tvbox.osc.base.BaseVbActivity
+import com.github.tvbox.osc.base.BaseActivity
 import com.github.tvbox.osc.bean.AbsXml
 import com.github.tvbox.osc.bean.Movie
 import com.github.tvbox.osc.bean.SourceBean
-import com.github.tvbox.osc.databinding.ActivityFastSearchBinding
 import com.github.tvbox.osc.event.RefreshEvent
 import com.github.tvbox.osc.event.ServerEvent
 import com.github.tvbox.osc.ui.adapter.FastSearchAdapter
-import com.github.tvbox.osc.ui.adapter.SearchWordAdapter
 import com.github.tvbox.osc.ui.dialog.SearchCheckboxDialog
 import com.github.tvbox.osc.ui.dialog.SearchSuggestionsDialog
-import com.github.tvbox.osc.ui.widget.LinearSpacingItemDecoration
 import com.github.tvbox.osc.util.FastClickCheckUtil
 import com.github.tvbox.osc.util.HawkConfig
 import com.github.tvbox.osc.util.SearchHelper
 import com.github.tvbox.osc.viewmodel.SourceViewModel
-import com.google.gson.Gson
-import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.lxj.xpopup.XPopup
 import com.lxj.xpopup.core.BasePopupView
-import com.lxj.xpopup.interfaces.OnSelectListener
 import com.lxj.xpopup.interfaces.SimpleCallback
 import com.lzy.okgo.OkGo
 import com.lzy.okgo.callback.AbsCallback
 import com.orhanobut.hawk.Hawk
 import com.zhy.view.flowlayout.FlowLayout
 import com.zhy.view.flowlayout.TagAdapter
+import com.owen.tvrecyclerview.widget.TvRecyclerView
+import android.widget.ImageView
+import android.view.ViewGroup
+import com.zhy.view.flowlayout.TagFlowLayout
 import okhttp3.Response
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
-import java.net.URLEncoder
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
-class FastSearchActivity : BaseVbActivity<ActivityFastSearchBinding>(), TextWatcher {
+class FastSearchActivity : BaseActivity(), TextWatcher {
 
     companion object {
         private var mCheckSources: HashMap<String, String>? = null
         fun setCheckedSourcesForSearch(checkedSources: HashMap<String, String>?) {
             mCheckSources = checkedSources
         }
+
+    @Composable
+    private fun FastSearchTopBar(
+        onBack: () -> Unit,
+        onFilter: () -> Unit,
+        onSearch: (String) -> Unit,
+        onQueryChange: (String) -> Unit,
+        provideAnchor: (View) -> Unit,
+    ) {
+        var query by remember { mutableStateOf("") }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.Filled.ArrowBack, contentDescription = "返回")
+            }
+            OutlinedTextField(
+                value = query,
+                onValueChange = {
+                    query = it
+                    onQueryChange(it)
+                },
+                modifier = Modifier.weight(1f),
+                placeholder = { Text("搜索") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { onSearch(query) })
+            )
+            // Invisible anchor view for suggestion popup positioning
+            AndroidView(
+                modifier = Modifier.size(1.dp),
+                factory = { ctx -> View(ctx).also { provideAnchor(it) } }
+            )
+            IconButton(onClick = onFilter) {
+                Icon(Icons.Outlined.FilterList, contentDescription = "筛选")
+            }
+            IconButton(onClick = { onSearch(query) }) {
+                Icon(Icons.Filled.Search, contentDescription = "搜索")
+            }
+        }
+    }
     }
 
     private lateinit var sourceViewModel : SourceViewModel
@@ -79,14 +136,22 @@ class FastSearchActivity : BaseVbActivity<ActivityFastSearchBinding>(), TextWatc
     private var resultVods = HashMap<String, MutableList<Movie.Video>>()
     private var pauseRunnable: MutableList<Runnable>? = null
     private var mSearchSuggestionsDialog: SearchSuggestionsDialog? = null
+    // Views hosted via AndroidView inside Compose
+    private lateinit var tabLayout: DslTabLayout
+    private lateinit var mGridView: TvRecyclerView
+    private lateinit var mGridViewFilter: TvRecyclerView
+    private lateinit var llLayout: LinearLayout
+    private val showSuggest = mutableStateOf(true)
+    private var suggestAnchorView: View? = null
+    private lateinit var historyFlow: com.zhy.view.flowlayout.TagFlowLayout
+    private lateinit var hotFlow: com.zhy.view.flowlayout.TagFlowLayout
+    private var pendingShowResults: Boolean = false
+    private var pendingInitTabs: Boolean = false
+    private var pendingFilterKeyToApply: String? = null
+
     override fun init() {
         sourceViewModel = ViewModelProvider(this).get(SourceViewModel::class.java)
-        initView()
         initData()
-        //历史搜索
-        initHistorySearch()
-        // 热门搜索
-        hotWords
     }
 
     override fun onResume() {
@@ -102,29 +167,149 @@ class FastSearchActivity : BaseVbActivity<ActivityFastSearchBinding>(), TextWatc
         }
     }
 
-    private fun initView() {
-        mBinding.etSearch.setOnEditorActionListener { _: TextView?, actionId: Int, _: KeyEvent? ->
-            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
-                search(mBinding.etSearch.text.toString())
-                return@setOnEditorActionListener true
-            }
-            false
-        }
-        mBinding.etSearch.addTextChangedListener(this)
-        mBinding.ivFilter.setOnClickListener { filterSearchSource() }
-        mBinding.ivBack.setOnClickListener { finish() }
-        mBinding.ivSearch.setOnClickListener {
-            search(mBinding.etSearch.text.toString())
-        }
-        mBinding.tabLayout.configTabLayoutConfig {
-            onSelectViewChange  = { _, selectViewList, _, _ ->
-                    val tvItem: TextView = selectViewList.first() as TextView
-                    filterResult(tvItem.text.toString())
+    override fun getLayoutResID(): Int = -1
+
+    override fun initVb() {
+        setContent {
+            Surface(color = MaterialTheme.colorScheme.background) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    FastSearchTopBar(
+                        onBack = { finish() },
+                        onFilter = { filterSearchSource() },
+                        onSearch = { query -> search(query) },
+                        onQueryChange = { text ->
+                            if (text.isEmpty()) {
+                                mSearchSuggestionsDialog?.dismiss()
+                                hideHotAndHistorySearch(false)
+                            } else {
+                                getSuggest(text)
+                            }
+                        },
+                        provideAnchor = { v -> suggestAnchorView = v }
+                    )
+                    if (showSuggest.value) {
+                        // Suggestion area: history + hot
+                        AndroidView(
+                            modifier = Modifier.fillMaxWidth().padding(10.dp),
+                            factory = { ctx ->
+                                LinearLayout(ctx).apply {
+                                    orientation = LinearLayout.VERTICAL
+                                    // History header
+                                    val header = LinearLayout(ctx).apply {
+                                        orientation = LinearLayout.HORIZONTAL
+                                        val tv = TextView(ctx)
+                                        tv.text = "历史搜索"
+                                        tv.textSize = 15f
+                                        addView(tv)
+                                        val clear = ImageView(ctx)
+                                        clear.setImageResource(R.drawable.ic_clear)
+                                        val lp = LinearLayout.LayoutParams(40.dp.value.toInt(), 40.dp.value.toInt())
+                                        lp.marginStart = 16
+                                        clear.layoutParams = lp
+                                        clear.setOnClickListener { view ->
+                                            Hawk.put(HawkConfig.HISTORY_SEARCH, ArrayList<Any>())
+                                            view.postDelayed({ renderHistory(this) }, 300)
+                                        }
+                                        addView(clear)
+                                    }
+                                    addView(header)
+                                    // History flow
+                                    historyFlow = TagFlowLayout(ctx)
+                                    addView(historyFlow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                                    renderHistory(this)
+                                    // Hot header
+                                    val hotTitle = TextView(ctx)
+                                    hotTitle.text = "热门搜索"
+                                    hotTitle.textSize = 15f
+                                    val hotLp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                                    hotLp.topMargin = (10.dp.value).toInt()
+                                    addView(hotTitle, hotLp)
+                                    // Hot flow
+                                    hotFlow = TagFlowLayout(ctx)
+                                    addView(hotFlow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                                    loadHotWords()
+                                }
+                            }
+                        )
+                    } else {
+                    Row(modifier = Modifier.fillMaxSize()) {
+                        // Left: DslTabLayout
+                        AndroidView(
+                            modifier = Modifier.width(120.dp).fillMaxHeight(),
+                            factory = { ctx ->
+                                DslTabLayout(ctx).also { tl ->
+                                    tabLayout = tl
+                                    tl.configTabLayoutConfig {
+                                        onSelectViewChange = { _, selectViewList, _, _ ->
+                                            val tvItem: TextView = selectViewList.first() as TextView
+                                            filterResult(tvItem.text.toString())
+                                        }
+                                    }
+                                    if (pendingInitTabs) {
+                                        pendingInitTabs = false
+                                        // now safe to build tabs
+                                        searchResult()
+                                    }
+                                }
+                            }
+                        )
+                        // Right: container with two RecyclerViews
+                        AndroidView(
+                            modifier = Modifier.weight(1f).fillMaxHeight().padding(horizontal = 10.dp),
+                            factory = { ctx ->
+                                LinearLayout(ctx).apply {
+                                    orientation = LinearLayout.VERTICAL
+                                    llLayout = this
+                                    // main list
+                                    mGridView = TvRecyclerView(ctx).also { rv ->
+                                        rv.setHasFixedSize(true)
+                                        rv.layoutManager = LinearLayoutManager(ctx)
+                                        rv.adapter = searchAdapter
+                                        rv.visibility = View.INVISIBLE
+                                    }
+                                    addView(mGridView, LinearLayout.LayoutParams(
+                                        LinearLayout.LayoutParams.MATCH_PARENT,
+                                        LinearLayout.LayoutParams.MATCH_PARENT
+                                    ))
+                                    // filter list
+                                    mGridViewFilter = TvRecyclerView(ctx).also { rv ->
+                                        rv.layoutManager = LinearLayoutManager(ctx)
+                                        rv.adapter = searchAdapterFilter
+                                        rv.visibility = View.GONE
+                                    }
+                                    addView(mGridViewFilter, LinearLayout.LayoutParams(
+                                        LinearLayout.LayoutParams.MATCH_PARENT,
+                                        LinearLayout.LayoutParams.MATCH_PARENT
+                                    ))
+                                    // Avoid wrapping this view with LoadSir inside factory to prevent parent conflicts
+                                    if (pendingShowResults) {
+                                        // ensure initial visibility if a search was triggered before compose of lists
+                                        mGridView.visibility = View.INVISIBLE
+                                        mGridViewFilter.visibility = View.GONE
+                                        pendingShowResults = false
+                                    }
+                                    pendingFilterKeyToApply?.let { key ->
+                                        if (key.isEmpty()) {
+                                            mGridView.visibility = View.VISIBLE
+                                            mGridViewFilter.visibility = View.GONE
+                                            isFilterMode = false
+                                        } else {
+                                            mGridView.visibility = View.GONE
+                                            mGridViewFilter.visibility = View.VISIBLE
+                                            isFilterMode = true
+                                            searchFilterKey = key
+                                        }
+                                        pendingFilterKeyToApply = null
+                                    }
+                                }
+                            }
+                        )
+                    }
+                    }
                 }
+            }
         }
-        mBinding.mGridView.setHasFixedSize(true)
-        mBinding.mGridView.setLayoutManager(LinearLayoutManager(this))
-        mBinding.mGridView.adapter = searchAdapter
+        // item click listeners
         searchAdapter.setOnItemClickListener { _, view, position ->
             FastClickCheckUtil.check(view)
             val video = searchAdapter.data[position]
@@ -142,9 +327,6 @@ class FastSearchActivity : BaseVbActivity<ActivityFastSearchBinding>(), TextWatc
             bundle.putString("sourceKey", video.sourceKey)
             jumpActivity(DetailActivity::class.java, bundle)
         }
-        mBinding.mGridViewFilter.setLayoutManager(LinearLayoutManager(this))
-
-        mBinding.mGridViewFilter.adapter = searchAdapterFilter
         searchAdapterFilter.setOnItemClickListener { _, view, position ->
             FastClickCheckUtil.check(view)
             val video = searchAdapterFilter.data[position]
@@ -164,8 +346,6 @@ class FastSearchActivity : BaseVbActivity<ActivityFastSearchBinding>(), TextWatc
                 jumpActivity(DetailActivity::class.java, bundle)
             }
         }
-
-        setLoadSir(mBinding.llLayout)
     }
 
     /**
@@ -187,19 +367,26 @@ class FastSearchActivity : BaseVbActivity<ActivityFastSearchBinding>(), TextWatc
     }
 
     private fun filterResult(spName: String) {
-        if (spName === "全部显示") {
-            mBinding.mGridView.visibility = View.VISIBLE
-            mBinding.mGridViewFilter.visibility = View.GONE
+        // RecyclerViews may not be ready yet; defer
+        if (!this::mGridView.isInitialized || !this::mGridViewFilter.isInitialized) {
+            pendingFilterKeyToApply = if (spName === "全部显示") "" else spNames[spName]
             return
         }
-        mBinding.mGridView.visibility = View.GONE
-        mBinding.mGridViewFilter.visibility = View.VISIBLE
+        if (spName === "全部显示") {
+            isFilterMode = false
+            mGridView.visibility = View.VISIBLE
+            mGridViewFilter.visibility = View.GONE
+            return
+        }
         val key = spNames[spName]
         if (key.isNullOrEmpty()) return
         if (searchFilterKey === key) return
+        isFilterMode = true
         searchFilterKey = key
-        val list: List<Movie.Video> = (resultVods[key])!!
+        val list: List<Movie.Video> = (resultVods[key]) ?: emptyList()
         searchAdapterFilter.setNewData(list)
+        mGridView.visibility = View.GONE
+        mGridViewFilter.visibility = View.VISIBLE
     }
 
     private fun initData() {
@@ -210,96 +397,25 @@ class FastSearchActivity : BaseVbActivity<ActivityFastSearchBinding>(), TextWatc
                 showLoading()
                 search(title)
             }
+        } else {
+            // 首次进入且无预置标题，默认展示 历史/热门
+            hideHotAndHistorySearch(false)
         }
     }
 
     private fun hideHotAndHistorySearch(isHide: Boolean) {
-        if (isHide) {
-            mBinding.llSearchSuggest.visibility = View.GONE
-            mBinding.llSearchResult.visibility = View.VISIBLE
-        } else {
-            mBinding.llSearchSuggest.visibility = View.VISIBLE
-            mBinding.llSearchResult.visibility = View.GONE
-        }
+        showSuggest.value = !isHide
     }
 
     private fun initHistorySearch() {
-        val mSearchHistory: List<String> = Hawk.get(HawkConfig.HISTORY_SEARCH, ArrayList())
-        mBinding.llHistory.visibility = if (mSearchHistory.isNotEmpty()) View.VISIBLE else View.GONE
-        mBinding.flHistory.adapter = object : TagAdapter<String?>(mSearchHistory) {
-            override fun getView(parent: FlowLayout, position: Int, s: String?): View {
-                val tv: TextView = LayoutInflater.from(this@FastSearchActivity).inflate(
-                    R.layout.item_search_word_hot,
-                    mBinding.flHistory, false
-                ) as TextView
-                tv.text = s
-                return tv
-            }
-        }
-        mBinding.flHistory.setOnTagClickListener { _: View?, position: Int, _: FlowLayout? ->
-            search(mSearchHistory[position])
-            true
-        }
-        findViewById<View>(R.id.iv_clear_history).setOnClickListener { view: View ->
-            Hawk.put(HawkConfig.HISTORY_SEARCH, ArrayList<Any>())
-            //FlowLayout及其adapter貌似没有清空数据的api,简单粗暴重置
-            view.postDelayed({ initHistorySearch() }, 300)
-        }
+        // 步骤B暂不展示历史/热门区域
     }
 
     /**
      * 热门搜索
      */
     private val hotWords: Unit
-        get() {
-            // 加载热词
-            OkGo.get<String>("https://node.video.qq.com/x/api/hot_search")
-                .params("channdlId", "0")
-                .params("_", System.currentTimeMillis())
-                .execute(object : AbsCallback<String?>() {
-                    override fun onSuccess(response: com.lzy.okgo.model.Response<String?>) {
-                        try {
-                            val hots = ArrayList<String>()
-                            val itemList =
-                                JsonParser.parseString(response.body()).asJsonObject["data"].asJsonObject["mapResult"].asJsonObject["0"].asJsonObject["listInfo"].asJsonArray
-                            //                            JsonArray itemList = JsonParser.parseString(response.body()).getAsJsonObject().get("data").getAsJsonArray();
-                            for (ele: JsonElement in itemList) {
-                                val obj = ele as JsonObject
-                                hots.add(obj["title"].asString.trim { it <= ' ' }
-                                    .replace("<|>|《|》|-".toRegex(), "").split(" ".toRegex())
-                                    .dropLastWhile { it.isEmpty() }
-                                    .toTypedArray()[0])
-                            }
-                            mBinding.flHot.adapter = object : TagAdapter<String?>(hots as List<String?>?) {
-                                override fun getView(
-                                    parent: FlowLayout,
-                                    position: Int,
-                                    s: String?
-                                ): View {
-                                    val tv: TextView =
-                                        LayoutInflater.from(this@FastSearchActivity).inflate(
-                                            R.layout.item_search_word_hot,
-                                            mBinding.flHot, false
-                                        ) as TextView
-                                    tv.text = s
-                                    return tv
-                                }
-                            }
-                            mBinding.flHot.setOnTagClickListener { _: View?, position: Int, _: FlowLayout? ->
-                                search(hots.get(position))
-                                true
-                            }
-                        } catch (th: Throwable) {
-                            th.printStackTrace()
-                        }
-                    }
-
-                    @Throws(Throwable::class)
-                    override fun convertResponse(response: Response): String {
-                        return response.body()!!.string()
-                    }
-                })
-        }
+        get() { /* unused now; using loadHotWords() in Compose */ }
 
     /**
      * 联想搜索
@@ -340,10 +456,8 @@ class FastSearchActivity : BaseVbActivity<ActivityFastSearchBinding>(), TextWatc
                     LogUtils.d("搜索:$text")
                     mSearchSuggestionsDialog!!.dismissWith { search(text) }
                 }
-            XPopup.Builder(this@FastSearchActivity)
-                .atView(mBinding.etSearch)
-                .notDismissWhenTouchInView(mBinding.etSearch)
-                .isViewMode(true) //开启View实现
+            val builder = XPopup.Builder(this@FastSearchActivity)
+                .isViewMode(true)
                 .isRequestFocus(false) //不强制焦点
                 .setPopupCallback(object : SimpleCallback() {
                     override fun onDismiss(popupView: BasePopupView) { // 弹窗关闭了就置空对象,下次重新new
@@ -351,11 +465,75 @@ class FastSearchActivity : BaseVbActivity<ActivityFastSearchBinding>(), TextWatc
                         mSearchSuggestionsDialog = null
                     }
                 })
-                .asCustom(mSearchSuggestionsDialog)
-                .show()
+            suggestAnchorView?.let { anchor ->
+                builder.atView(anchor).notDismissWhenTouchInView(anchor)
+            }
+            builder.asCustom(mSearchSuggestionsDialog).show()
         } else { // 不为空说明弹窗为打开状态(关闭就置空了).直接刷新数据
             mSearchSuggestionsDialog!!.updateSuggestions(list)
         }
+    }
+
+    private fun renderHistory(parent: LinearLayout) {
+        val mSearchHistory: List<String> = Hawk.get(HawkConfig.HISTORY_SEARCH, ArrayList())
+        historyFlow.adapter = object : TagAdapter<String?>(mSearchHistory) {
+            override fun getView(parent: FlowLayout, position: Int, s: String?): View {
+                val tv = TextView(this@FastSearchActivity)
+                tv.text = s
+                tv.textSize = 14f
+                tv.setPadding(20, 10, 20, 10)
+                return tv
+            }
+        }
+        historyFlow.setOnTagClickListener { _: View?, position: Int, _: FlowLayout? ->
+            search(mSearchHistory[position])
+            true
+        }
+    }
+
+    private fun loadHotWords() {
+        OkGo.get<String>("https://node.video.qq.com/x/api/hot_search")
+            .params("channdlId", "0")
+            .params("_", System.currentTimeMillis())
+            .execute(object : AbsCallback<String?>() {
+                override fun onSuccess(response: com.lzy.okgo.model.Response<String?>) {
+                    try {
+                        val hots = ArrayList<String>()
+                        val itemList =
+                            JsonParser.parseString(response.body()).asJsonObject["data"].asJsonObject["mapResult"].asJsonObject["0"].asJsonObject["listInfo"].asJsonArray
+                        for (ele: JsonElement in itemList) {
+                            val obj = ele as JsonObject
+                            hots.add(obj["title"].asString.trim { it <= ' ' }
+                                .replace("<|>|《|》|-".toRegex(), "").split(" ".toRegex())
+                                .dropLastWhile { it.isEmpty() }
+                                .toTypedArray()[0])
+                        }
+                        hotFlow.adapter = object : TagAdapter<String?>(hots as List<String?>?) {
+                            override fun getView(
+                                parent: FlowLayout,
+                                position: Int,
+                                s: String?
+                            ): View {
+                                val tv = TextView(this@FastSearchActivity)
+                                tv.text = s
+                                tv.textSize = 14f
+                                tv.setPadding(20, 10, 20, 10)
+                                return tv
+                            }
+                        }
+                        hotFlow.setOnTagClickListener { _: View?, position: Int, _: FlowLayout? ->
+                            search(hots[position])
+                            true
+                        }
+                    } catch (th: Throwable) {
+                        th.printStackTrace()
+                    }
+                }
+
+                override fun convertResponse(response: Response): String {
+                    return response.body()!!.string()
+                }
+            })
     }
 
     private fun saveSearchHistory(searchWord: String?) {
@@ -400,32 +578,34 @@ class FastSearchActivity : BaseVbActivity<ActivityFastSearchBinding>(), TextWatc
             return
         }
 
-        //先移除监听,避免重新设置要搜索的文字触发搜索建议并弹窗
-        mBinding.etSearch.removeTextChangedListener(this)
-        mBinding.etSearch.setText(title)
-        mBinding.etSearch.setSelection(title.length)
-        mBinding.etSearch.addTextChangedListener(this)
         if (mSearchSuggestionsDialog != null && mSearchSuggestionsDialog!!.isShow) {
             mSearchSuggestionsDialog!!.dismiss()
         }
         if (!Hawk.get(HawkConfig.PRIVATE_BROWSING, false)) { //无痕浏览不存搜索历史
             saveSearchHistory(title)
         }
+        // Switch to results area; lists may not yet be composed when triggered from history/hot
         hideHotAndHistorySearch(true)
+        pendingShowResults = true
         KeyboardUtils.hideSoftInput(this)
         cancel()
         showLoading()
         searchTitle = title
         //fenci();
-        mBinding.mGridView.visibility = View.INVISIBLE
-        mBinding.mGridViewFilter.visibility = View.GONE
-        searchAdapter!!.setNewData(ArrayList())
-        searchAdapterFilter!!.setNewData(ArrayList())
+        if (this::mGridView.isInitialized && this::mGridViewFilter.isInitialized) {
+            mGridView.visibility = View.INVISIBLE
+            mGridViewFilter.visibility = View.GONE
+            pendingShowResults = false
+        }
+        searchAdapter.setNewData(ArrayList())
+        searchAdapterFilter.setNewData(ArrayList())
         resultVods.clear()
         searchFilterKey = ""
         isFilterMode = false
         spNames.clear()
-        mBinding.tabLayout.removeAllViews()
+        if (this::tabLayout.isInitialized) {
+            tabLayout.removeAllViews()
+        }
         searchResult()
     }
 
@@ -444,6 +624,10 @@ class FastSearchActivity : BaseVbActivity<ActivityFastSearchBinding>(), TextWatc
     }
 
     private fun searchResult() {
+        if (!this::tabLayout.isInitialized) {
+            pendingInitTabs = true
+            return
+        }
         try {
             if (searchExecutorService != null) {
                 searchExecutorService!!.shutdownNow()
@@ -464,8 +648,8 @@ class FastSearchActivity : BaseVbActivity<ActivityFastSearchBinding>(), TextWatc
         searchRequestList.remove(home)
         searchRequestList.add(0, home)
         val siteKey = ArrayList<String>()
-        mBinding.tabLayout.addView(getSiteTextView("全部显示"))
-        mBinding.tabLayout.setCurrentItem(0, true, false)
+        tabLayout.addView(getSiteTextView("全部显示"))
+        tabLayout.setCurrentItem(0, true, false)
         for (bean: SourceBean in searchRequestList) {
             if (!bean.isSearchable) {
                 continue
@@ -501,13 +685,13 @@ class FastSearchActivity : BaseVbActivity<ActivityFastSearchBinding>(), TextWatc
                 }
             }
             if ((name == "")) return key
-            for (i in 0 until mBinding.tabLayout.childCount) {
-                val item = mBinding.tabLayout.getChildAt(i) as TextView
+            for (i in 0 until tabLayout.childCount) {
+                val item = tabLayout.getChildAt(i) as TextView
                 if ((name == item.text.toString())) {
                     return key
                 }
             }
-            mBinding.tabLayout.addView(getSiteTextView(name))
+            tabLayout.addView(getSiteTextView(name))
             return key
         } catch (e: Exception) {
             return key
@@ -545,7 +729,7 @@ class FastSearchActivity : BaseVbActivity<ActivityFastSearchBinding>(), TextWatc
                 searchAdapter.addData(data)
             } else {
                 showSuccess()
-                if (!isFilterMode) mBinding.mGridView.visibility = View.VISIBLE
+                if (!isFilterMode) mGridView.visibility = View.VISIBLE
                 searchAdapter.setNewData(data)
             }
         }
