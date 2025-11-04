@@ -13,7 +13,6 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,7 +33,6 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
@@ -58,7 +56,6 @@ import com.github.tvbox.osc.event.RefreshEvent
 import com.github.tvbox.osc.event.ServerEvent
 import com.github.tvbox.osc.ui.adapter.FastSearchAdapter
 import com.github.tvbox.osc.ui.dialog.SearchCheckboxDialog
-import com.github.tvbox.osc.ui.dialog.SearchSuggestionsDialog
 import com.github.tvbox.osc.util.FastClickCheckUtil
 import com.github.tvbox.osc.util.HawkConfig
 import com.github.tvbox.osc.util.SearchHelper
@@ -66,9 +63,6 @@ import com.github.tvbox.osc.viewmodel.SourceViewModel
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
-import com.lxj.xpopup.XPopup
-import com.lxj.xpopup.core.BasePopupView
-import com.lxj.xpopup.interfaces.SimpleCallback
 import com.lzy.okgo.OkGo
 import com.lzy.okgo.callback.AbsCallback
 import com.orhanobut.hawk.Hawk
@@ -77,6 +71,7 @@ import com.zhy.view.flowlayout.TagAdapter
 import com.owen.tvrecyclerview.widget.TvRecyclerView
 import android.widget.ImageView
 import android.view.ViewGroup
+import androidx.compose.foundation.clickable
 import com.zhy.view.flowlayout.TagFlowLayout
 import okhttp3.Response
 import org.greenrobot.eventbus.Subscribe
@@ -84,6 +79,7 @@ import org.greenrobot.eventbus.ThreadMode
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
+import androidx.compose.ui.unit.sp
 
 class FastSearchActivity : BaseActivity(), TextWatcher {
 
@@ -96,11 +92,10 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
     @Composable
     private fun FastSearchTopBar(
         onBack: () -> Unit,
-        onSearch: (String) -> Unit,
+        query: String,
         onQueryChange: (String) -> Unit,
-        provideAnchor: (View) -> Unit,
+        onSearch: (String) -> Unit,
     ) {
-        var query by remember { mutableStateOf("") }
         val container = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
         val colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
             containerColor = container,
@@ -136,28 +131,23 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
                     TextField(
                         value = query,
                         onValueChange = {
-                            query = it
                             onQueryChange(it)
                         },
                         modifier = Modifier.weight(1f),
-                        placeholder = { Text("搜索") },
+                        placeholder = { Text("搜索", fontSize = 14.sp) },
                         singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(fontSize = 14.sp),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         keyboardActions = KeyboardActions(onSearch = { onSearch(query) }),
                         trailingIcon = {
                             Row {
                                 if (query.isNotEmpty()) {
                                     IconButton(onClick = {
-                                        query = ""
                                         onQueryChange("")
                                     }) {
                                         Icon(Icons.Filled.Close, contentDescription = "清空")
                                     }
                                 }
-                                AndroidView(
-                                    modifier = Modifier.size(1.dp),
-                                    factory = { ctx -> View(ctx).also { provideAnchor(it) } }
-                                )
                             }
                         },
                         colors = TextFieldDefaults.colors(
@@ -185,17 +175,16 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
     private var searchFilterKey: String? = "" // 过滤的key
     private var resultVods = HashMap<String, MutableList<Movie.Video>>()
     private var pauseRunnable: MutableList<Runnable>? = null
-    private var mSearchSuggestionsDialog: SearchSuggestionsDialog? = null
     // Views hosted via AndroidView inside Compose
     private lateinit var tabLayout: DslTabLayout
     private lateinit var mGridView: TvRecyclerView
     private lateinit var mGridViewFilter: TvRecyclerView
     private lateinit var llLayout: LinearLayout
     private val showSuggest = mutableStateOf(true)
-    private var suggestAnchorView: View? = null
     private lateinit var historyFlow: com.zhy.view.flowlayout.TagFlowLayout
     private lateinit var hotFlow: com.zhy.view.flowlayout.TagFlowLayout
     private var pendingInitTabs: Boolean = false
+    private val suggestions = mutableStateListOf<String>()
 
     override fun init() {
         sourceViewModel = ViewModelProvider(this).get(SourceViewModel::class.java)
@@ -221,65 +210,87 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
         setContent {
             Surface(color = MaterialTheme.colorScheme.background) {
                 Column(modifier = Modifier.fillMaxSize()) {
+                    val queryState = remember { mutableStateOf("") }
                     FastSearchTopBar(
                         onBack = { finish() },
-                        onSearch = { query -> search(query) },
+                        query = queryState.value,
                         onQueryChange = { text ->
+                            queryState.value = text
                             if (text.isEmpty()) {
-                                mSearchSuggestionsDialog?.dismiss()
+                                suggestions.clear()
                                 hideHotAndHistorySearch(false)
                             } else {
                                 getSuggest(text)
                             }
                         },
-                        provideAnchor = { v -> suggestAnchorView = v }
+                        onSearch = { query -> search(query) }
                     )
                     if (showSuggest.value) {
-                        // Suggestion area: history + hot
-                        AndroidView(
-                            modifier = Modifier.fillMaxWidth().padding(10.dp),
-                            factory = { ctx ->
-                                LinearLayout(ctx).apply {
-                                    orientation = LinearLayout.VERTICAL
-                                    // History header
-                                    val header = LinearLayout(ctx).apply {
-                                        orientation = LinearLayout.HORIZONTAL
-                                        val tv = TextView(ctx)
-                                        tv.text = "历史搜索"
-                                        tv.textSize = 15f
-                                        addView(tv)
-                                        val clear = ImageView(ctx)
-                                        clear.setImageResource(R.drawable.ic_clear)
-                                        val lp = LinearLayout.LayoutParams(40.dp.value.toInt(), 40.dp.value.toInt())
-                                        lp.marginStart = 16
-                                        clear.layoutParams = lp
-                                        clear.setOnClickListener { view ->
-                                            Hawk.put(HawkConfig.HISTORY_SEARCH, ArrayList<Any>())
-                                            view.postDelayed({ renderHistory(this) }, 300)
-                                        }
-                                        addView(clear)
+                        if (suggestions.isNotEmpty()) {
+                            // Compose suggestions list occupying the rest area
+                            androidx.compose.foundation.lazy.LazyColumn(
+                                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp)
+                            ) {
+                                items(suggestions.size) { idx ->
+                                    val s = suggestions[idx]
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(48.dp)
+                                            .padding(vertical = 6.dp)
+                                            .clickable {
+                                                queryState.value = s
+                                                search(s)
+                                            },
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(text = s, color = MaterialTheme.colorScheme.onSurface)
                                     }
-                                    addView(header)
-                                    // History flow
-                                    historyFlow = TagFlowLayout(ctx)
-                                    addView(historyFlow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                                    renderHistory(this)
-                                    // Hot header
-                                    val hotTitle = TextView(ctx)
-                                    hotTitle.text = "热门搜索"
-                                    hotTitle.textSize = 15f
-                                    val hotLp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                                    hotLp.topMargin = (10.dp.value).toInt()
-                                    addView(hotTitle, hotLp)
-                                    // Hot flow
-                                    hotFlow = TagFlowLayout(ctx)
-                                    addView(hotFlow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                                    loadHotWords()
                                 }
                             }
-                        )
+                        } else {
+                            // History + Hot (existing AndroidView block)
+                            AndroidView(
+                                modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                factory = { ctx ->
+                                    LinearLayout(ctx).apply {
+                                        orientation = LinearLayout.VERTICAL
+                                        val header = LinearLayout(ctx).apply {
+                                            orientation = LinearLayout.HORIZONTAL
+                                            val tv = TextView(ctx)
+                                            tv.text = "历史搜索"
+                                            tv.textSize = 15f
+                                            addView(tv)
+                                            val clear = ImageView(ctx)
+                                            clear.setImageResource(R.drawable.ic_clear)
+                                            val lp = LinearLayout.LayoutParams(40.dp.value.toInt(), 40.dp.value.toInt())
+                                            lp.marginStart = 16
+                                            clear.layoutParams = lp
+                                            clear.setOnClickListener { view ->
+                                                Hawk.put(HawkConfig.HISTORY_SEARCH, ArrayList<Any>())
+                                                view.postDelayed({ renderHistory(this) }, 300)
+                                            }
+                                            addView(clear)
+                                        }
+                                        addView(header)
+                                        historyFlow = TagFlowLayout(ctx)
+                                        addView(historyFlow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                                        renderHistory(this)
+                                        val hotTitle = TextView(ctx)
+                                        hotTitle.text = "热门搜索"
+                                        hotTitle.textSize = 15f
+                                        val hotLp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+                                        hotLp.topMargin = (10.dp.value).toInt()
+                                        addView(hotTitle, hotLp)
+                                        hotFlow = TagFlowLayout(ctx)
+                                        addView(hotFlow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+                                        loadHotWords()
+                                    }
+                                }
+                            )
+                        }
                     } else {
-                    Row(modifier = Modifier.fillMaxSize()) {
+                        Row(modifier = Modifier.fillMaxSize()) {
                         // Left: DslTabLayout
                         AndroidView(
                             modifier = Modifier.width(120.dp).fillMaxHeight(),
@@ -466,9 +477,9 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
                     } catch (th: Throwable) {
                         LogUtils.d(th.toString())
                     }
-                    if (titles.isNotEmpty()) {
-                        showSuggestDialog(titles)
-                    }
+                    suggestions.clear()
+                    suggestions.addAll(titles)
+                    showSuggest.value = true
                 }
 
                 @Throws(Throwable::class)
@@ -478,34 +489,7 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
             })
     }
 
-    private fun showSuggestDialog(list: List<String>) {
-        if (mSearchSuggestionsDialog == null) {
-            mSearchSuggestionsDialog =
-                SearchSuggestionsDialog(this@FastSearchActivity, list
-                ) { _, text ->
-                    LogUtils.d("搜索:$text")
-                    mSearchSuggestionsDialog!!.dismissWith { search(text) }
-                }
-            val builder = XPopup.Builder(this@FastSearchActivity)
-                .isViewMode(true)
-                .isRequestFocus(false) //不强制焦点
-                .setPopupCallback(object : SimpleCallback() {
-                    override fun onDismiss(popupView: BasePopupView) { // 弹窗关闭了就置空对象,下次重新new
-                        super.onDismiss(popupView)
-                        mSearchSuggestionsDialog = null
-                    }
-                })
-            suggestAnchorView?.let { anchor ->
-                builder.atView(anchor).notDismissWhenTouchInView(anchor)
-                val extra = (4 * this@FastSearchActivity.resources.displayMetrics.density).toInt()
-                val dy = anchor.height / 2 + extra
-                builder.offsetY(dy)
-            }
-            builder.asCustom(mSearchSuggestionsDialog).show()
-        } else { // 不为空说明弹窗为打开状态(关闭就置空了).直接刷新数据
-            mSearchSuggestionsDialog!!.updateSuggestions(list)
-        }
-    }
+    // legacy suggest dialog removed; now using Compose list
 
     private fun renderHistory(parent: LinearLayout) {
         val mSearchHistory: List<String> = Hawk.get(HawkConfig.HISTORY_SEARCH, ArrayList())
@@ -611,9 +595,7 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
             return
         }
 
-        if (mSearchSuggestionsDialog != null && mSearchSuggestionsDialog!!.isShow) {
-            mSearchSuggestionsDialog!!.dismiss()
-        }
+        suggestions.clear()
         if (!Hawk.get(HawkConfig.PRIVATE_BROWSING, false)) { //无痕浏览不存搜索历史
             saveSearchHistory(title)
         }
@@ -792,7 +774,7 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
     override fun afterTextChanged(editable: Editable) {
         val text = editable.toString()
         if (TextUtils.isEmpty(text)) {
-            mSearchSuggestionsDialog?.dismiss()
+            suggestions.clear()
             hideHotAndHistorySearch(false)
         } else {
             getSuggest(text)
