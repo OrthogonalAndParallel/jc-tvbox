@@ -5,7 +5,6 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextUtils
 import android.text.TextWatcher
-import android.view.Gravity
 import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -37,7 +36,6 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
@@ -45,8 +43,6 @@ import androidx.compose.ui.platform.LocalView
 import android.app.Activity
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.ViewModelProvider
-import androidx.recyclerview.widget.LinearLayoutManager
-// removed DslTabLayout, use Compose list
 import com.blankj.utilcode.util.KeyboardUtils
 import com.blankj.utilcode.util.LogUtils
 import com.blankj.utilcode.util.ToastUtils
@@ -57,6 +53,8 @@ import com.github.tvbox.osc.base.BaseActivity
 import com.github.tvbox.osc.bean.AbsXml
 import com.github.tvbox.osc.bean.Movie
 import com.github.tvbox.osc.bean.SourceBean
+import com.github.tvbox.osc.util.MD5
+import com.github.tvbox.osc.picasso.RoundTransformation
 import com.github.tvbox.osc.event.RefreshEvent
 import com.github.tvbox.osc.event.ServerEvent
 import com.github.tvbox.osc.ui.adapter.FastSearchAdapter
@@ -73,7 +71,6 @@ import com.lzy.okgo.callback.AbsCallback
 import com.orhanobut.hawk.Hawk
 import com.zhy.view.flowlayout.FlowLayout
 import com.zhy.view.flowlayout.TagAdapter
-import com.owen.tvrecyclerview.widget.TvRecyclerView
 import android.widget.ImageView
 import android.view.ViewGroup
 import androidx.compose.foundation.clickable
@@ -182,9 +179,8 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
     private var pauseRunnable: MutableList<Runnable>? = null
     // Left source names for Compose list
     private val sourceNames = mutableStateListOf<String>()
-    private lateinit var mGridView: TvRecyclerView
-    private lateinit var mGridViewFilter: TvRecyclerView
-    private lateinit var llLayout: LinearLayout
+    private val mainVideos = mutableStateListOf<Movie.Video>()
+    private val filterVideos = mutableStateListOf<Movie.Video>()
     private val showSuggest = mutableStateOf(true)
     private lateinit var historyFlow: com.zhy.view.flowlayout.TagFlowLayout
     private lateinit var hotFlow: com.zhy.view.flowlayout.TagFlowLayout
@@ -323,49 +319,87 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
                                 }
                             }
                         }
-                        // Right: container with two RecyclerViews
-                        AndroidView(
-                            modifier = Modifier.weight(1f).fillMaxHeight().padding(horizontal = 10.dp),
-                            factory = { ctx ->
-                                LinearLayout(ctx).apply {
-                                    orientation = LinearLayout.VERTICAL
-                                    llLayout = this
-                                    // main list
-                                    mGridView = TvRecyclerView(ctx).also { rv ->
-                                        rv.setHasFixedSize(true)
-                                        rv.layoutManager = LinearLayoutManager(ctx)
-                                        rv.adapter = searchAdapter
-                                        rv.visibility = View.INVISIBLE
-                                    }
-                                    addView(mGridView, LinearLayout.LayoutParams(
-                                        LinearLayout.LayoutParams.MATCH_PARENT,
-                                        LinearLayout.LayoutParams.MATCH_PARENT
-                                    ))
-                                    // filter list
-                                    mGridViewFilter = TvRecyclerView(ctx).also { rv ->
-                                        rv.layoutManager = LinearLayoutManager(ctx)
-                                        rv.adapter = searchAdapterFilter
-                                        rv.visibility = View.GONE
-                                    }
-                                    addView(mGridViewFilter, LinearLayout.LayoutParams(
-                                        LinearLayout.LayoutParams.MATCH_PARENT,
-                                        LinearLayout.LayoutParams.MATCH_PARENT
-                                    ))
-                                    // Avoid wrapping this view with LoadSir inside factory to prevent parent conflicts
-                                }
-                            },
-                            update = {
-                                if (this@FastSearchActivity::mGridView.isInitialized && this@FastSearchActivity::mGridViewFilter.isInitialized) {
-                                    if (isFilterModeState.value) {
-                                        mGridView.visibility = View.GONE
-                                        mGridViewFilter.visibility = View.VISIBLE
-                                    } else {
-                                        mGridView.visibility = View.VISIBLE
-                                        mGridViewFilter.visibility = View.GONE
+                        Box(modifier = Modifier.weight(1f).fillMaxHeight().padding(horizontal = 10.dp)) {
+                            val list = if (isFilterModeState.value) filterVideos else mainVideos
+                            androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.fillMaxSize()) {
+                                items(list.size) { idx ->
+                                    val video = list[idx]
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 8.dp)
+                                            .clickable {
+                                                val bundle = android.os.Bundle()
+                                                bundle.putString("id", video.id)
+                                                bundle.putString("sourceKey", video.sourceKey)
+                                                jumpActivity(DetailActivity::class.java, bundle)
+                                            },
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        // Preview Image (110x160dp) with rounded corners
+                                        AndroidView(
+                                            modifier = Modifier
+                                                .width(110.dp)
+                                                .height(160.dp),
+                                            factory = { ctx -> ImageView(ctx) },
+                                            update = { iv ->
+                                                val pic = video.pic
+                                                if (!pic.isNullOrEmpty()) {
+                                                    com.squareup.picasso.Picasso.get()
+                                                        .load(pic)
+                                                        .transform(
+                                                            RoundTransformation(
+                                                                MD5.string2MD5("${'$'}picposition=${'$'}idx")
+                                                            ).centerCorp(true)
+                                                                .override(
+                                                                    com.blankj.utilcode.util.ConvertUtils.dp2px(110f),
+                                                                    com.blankj.utilcode.util.ConvertUtils.dp2px(160f)
+                                                                )
+                                                                .roundRadius(
+                                                                    com.blankj.utilcode.util.ConvertUtils.dp2px(20f),
+                                                                    RoundTransformation.RoundType.ALL
+                                                                )
+                                                        )
+                                                        .placeholder(R.drawable.img_loading_placeholder)
+                                                        .error(R.drawable.img_loading_placeholder)
+                                                        .into(iv)
+                                                } else {
+                                                    iv.setImageResource(R.drawable.img_loading_placeholder)
+                                                }
+                                            }
+                                        )
+                                        Spacer(modifier = Modifier.width(12.dp))
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = video.name ?: "",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = com.github.tvbox.osc.api.ApiConfig.get().getSource(video.sourceKey).name,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                            if (!video.note.isNullOrEmpty()) {
+                                                Spacer(modifier = Modifier.height(2.dp))
+                                                Text(
+                                                    text = video.note ?: "",
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             }
-                        )
+                        }
                     }
                     }
                 }
@@ -618,8 +652,8 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
         showLoading()
         searchTitle = title
         //fenci();
-        searchAdapter.setNewData(ArrayList())
-        searchAdapterFilter.setNewData(ArrayList())
+        mainVideos.clear()
+        filterVideos.clear()
         resultVods.clear()
         searchFilterKeyState.value = null
         isFilterModeState.value = false
@@ -727,18 +761,16 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
                     lastSourceKey = addWordAdapterIfNeed(video.sourceKey)
                 }
             }
-            if (searchAdapter.data.size > 0) {
-                searchAdapter.addData(data)
-            } else {
+            if (data.isNotEmpty()) {
                 showSuccess()
-                if (!isFilterModeState.value) mGridView.visibility = View.VISIBLE
-                searchAdapter.setNewData(data)
+                mainVideos.addAll(data)
             }
             // If in filter mode, update the filter adapter with the active source list
             if (isFilterModeState.value) {
                 val activeKey = searchFilterKeyState.value
                 val list: List<Movie.Video> = if (activeKey != null) (resultVods[activeKey] ?: emptyList()) else emptyList()
-                searchAdapterFilter.setNewData(list)
+                filterVideos.clear()
+                filterVideos.addAll(list)
             }
         }
         val count = allRunCount.decrementAndGet()
