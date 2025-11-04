@@ -11,10 +11,18 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.surfaceColorAtElevation
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
 import com.blankj.utilcode.util.ToastUtils
 import com.github.tvbox.osc.R
 import com.github.tvbox.osc.base.BaseActivity
@@ -357,14 +365,44 @@ private fun SettingScreen(
     state: SettingState,
     handlers: SettingHandlers
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Top bar
-        TopAppBar(title = { Text("设置", fontSize = 18.sp, fontWeight = FontWeight.Bold) })
+    val container = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
+    val colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+        containerColor = container,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+    )
+
+    val view = LocalView.current
+    SideEffect {
+        val window = (view.context as? android.app.Activity)?.window
+        if (window != null) {
+            window.statusBarColor = container.toArgb()
+            val controller = WindowCompat.getInsetsController(window, window.decorView)
+            controller.isAppearanceLightStatusBars = container.luminance() > 0.5f
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            CenterAlignedTopAppBar(
+                modifier = Modifier.statusBarsPadding(),
+                colors = colors,
+                title = {
+                    Text(
+                        text = "设置",
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 1
+                    )
+                }
+            )
+        }
+    ) { innerPadding ->
         val scroll = rememberScrollState()
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(scroll)
+                .padding(innerPadding)
                 .padding(horizontal = 20.dp, vertical = 10.dp)
         ) {
             SettingsCard {
@@ -419,7 +457,7 @@ private fun SettingScreen(
 private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
     Card(
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(vertical = 8.dp)) { content() }
@@ -428,7 +466,7 @@ private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
 
 @Composable
 private fun DividerLine() {
-    Divider(color = Color(0x22000000))
+    HorizontalDivider(color = DividerDefaults.color)
 }
 
 @Composable
@@ -440,16 +478,19 @@ private fun RowItem(label: String, value: String, onClick: () -> Unit) {
             .padding(horizontal = 24.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = label, fontSize = 16.sp, color = Color(0xFF222222))
+        Text(text = label, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
         Spacer(modifier = Modifier.weight(1f))
         if (value.isNotEmpty()) {
-            Text(text = value, fontSize = 14.sp, color = Color(0xFF666666))
+            Text(text = value, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Spacer(modifier = Modifier.width(8.dp))
         Icon(
             painter = androidx.compose.ui.res.painterResource(id = R.drawable.icon_pre),
             contentDescription = null,
-            tint = Color(0xFF888888)
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier
+                .size(26.dp)
+                .alpha(0.9f)
         )
     }
 }
@@ -463,7 +504,7 @@ private fun SwitchItem(label: String, checked: Boolean, onCheckedChange: (Boolea
             .padding(horizontal = 24.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = label, fontSize = 16.sp, color = Color(0xFF222222))
+        Text(text = label, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
         Spacer(modifier = Modifier.weight(1f))
         Switch(
             checked = internalChecked,
