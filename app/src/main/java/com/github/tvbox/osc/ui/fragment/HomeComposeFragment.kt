@@ -26,8 +26,7 @@ import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
-import androidx.viewpager2.adapter.FragmentStateAdapter
-import androidx.viewpager2.widget.ViewPager2
+// removed ViewPager2 pager usage in full Compose implementation
 import com.blankj.utilcode.util.ScreenUtils
 import com.blankj.utilcode.util.ToastUtils
 import com.github.tvbox.osc.R
@@ -52,12 +51,22 @@ import com.github.tvbox.osc.viewmodel.SourceViewModel
 import com.github.tvbox.osc.server.ControlManager
 import com.lxj.xpopup.XPopup
 import com.orhanobut.hawk.Hawk
-import com.owen.tvrecyclerview.widget.TvRecyclerView
-import com.owen.tvrecyclerview.widget.V7GridLayoutManager
+// removed TvRecyclerView usages
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.recyclerview.widget.DiffUtil
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import android.widget.ImageView
+import com.github.tvbox.osc.util.MD5
+import com.github.tvbox.osc.picasso.RoundTransformation
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.luminance
@@ -65,6 +74,9 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import android.app.Activity
+import com.github.tvbox.osc.bean.Movie
+import com.owen.tvrecyclerview.widget.TvRecyclerView
+import com.owen.tvrecyclerview.widget.V7GridLayoutManager
 
 class HomeComposeFragment : Fragment() {
 
@@ -79,7 +91,8 @@ class HomeComposeFragment : Fragment() {
     var errorTipDialog: TipDialog? = null
     var onlyConfigChanged = false
 
-    private var viewPager: ViewPager2? = null
+    // private var viewPager: ViewPager2? = null // no longer used in full Compose
+    private var requestTabIndex: Int = -1
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -104,9 +117,16 @@ class HomeComposeFragment : Fragment() {
 
     @Composable
     private fun HomeScreen() {
-        var currentTab by remember { mutableStateOf(0) }
+        var currentTab by rememberSaveable { mutableStateOf(0) }
         var tabTitles by remember { mutableStateOf(listOf<String>()) }
         var homeName by remember { mutableStateOf(getString(R.string.app_name)) }
+
+        // Compose state for grids per tab
+        val lists = remember { mutableStateMapOf<Int, MutableList<Movie.Video>>() }
+        val pages = remember { mutableStateMapOf<Int, Int>() } // current page per tab
+        val maxPages = remember { mutableStateMapOf<Int, Int>() }
+        val isLoading = remember { mutableStateMapOf<Int, Boolean>() }
+        // use fragment-level requestTabIndex instead
 
         LaunchedEffect(Unit) {
             initViewModel(
@@ -119,11 +139,27 @@ class HomeComposeFragment : Fragment() {
             )
             initData(onTabsChange = { titles ->
                 tabTitles = titles
-                // reset to first tab when data refresh
                 currentTab = 0
-                viewPager?.adapter?.notifyDataSetChanged()
-                viewPager?.setCurrentItem(0, false)
+                // warm start first tab
+                triggerLoadIfNeeded(0, lists, pages, maxPages, isLoading)
             })
+        }
+
+        // Observe listResult to update current requesting tab's list
+        sourceViewModel?.listResult?.observe(viewLifecycleOwner) { absXml ->
+            val tab = requestTabIndex
+            if (tab < 0) return@observe
+            isLoading[tab] = false
+            if (absXml != null && absXml.movie != null && absXml.movie.videoList != null && absXml.movie.videoList.size > 0) {
+                val list = lists.getOrPut(tab) { mutableListOf() }
+                if ((pages[tab] ?: 1) == 1) list.clear()
+                list.addAll(absXml.movie.videoList)
+                pages[tab] = (pages[tab] ?: 1) + 1
+                maxPages[tab] = absXml.movie.pagecount
+            } else {
+                // no data or end
+                maxPages[tab] = pages[tab] ?: 1
+            }
         }
 
         Scaffold(
@@ -148,42 +184,124 @@ class HomeComposeFragment : Fragment() {
                                 selected = currentTab == index,
                                 onClick = {
                                     currentTab = index
-                                    viewPager?.setCurrentItem(index, false)
+                                    triggerLoadIfNeeded(index, lists, pages, maxPages, isLoading)
                                 },
                                 text = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                             )
                         }
                     }
-                    AndroidView(
-                        modifier = Modifier.fillMaxSize(),
-                        factory = { context ->
-                            ViewPager2(context).apply {
-                                viewPager = this
-                                offscreenPageLimit = 3
-                                adapter = object : FragmentStateAdapter(this@HomeComposeFragment) {
-                                    override fun getItemCount(): Int = fragments.size
-                                    override fun createFragment(position: Int) = fragments[position]
-                                }
-                                registerOnPageChangeCallback(object : ViewPager2.OnPageChangeCallback() {
-                                    override fun onPageSelected(position: Int) {
-                                        super.onPageSelected(position)
-                                        currentTab = position
-                                    }
-                                })
-                            }
-                        },
-                        update = { vp ->
-                            if (vp.currentItem != currentTab) vp.setCurrentItem(currentTab, false)
+                    val videos = lists[currentTab] ?: emptyList()
+                    if (videos.isEmpty() && (isLoading[currentTab] != false)) {
+                        Box(Modifier.fillMaxSize()) {
+                            CircularProgressIndicator(Modifier.align(Alignment.Center))
                         }
-                    )
+                    } else {
+                        LazyVerticalGrid(
+                            modifier = Modifier.fillMaxSize(),
+                            columns = GridCells.Fixed(3),
+                            contentPadding = PaddingValues(12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            itemsIndexed(videos) { idx, video ->
+                                VideoCard(video = video, onClick = {
+                                    val intent = Intent(requireContext(), FastSearchActivity::class.java)
+                                    intent.putExtra("title", video.name)
+                                    startActivity(intent)
+                                })
+                                // Load more trigger when nearing end
+                                val nextPage = pages[currentTab] ?: 1
+                                val max = maxPages[currentTab] ?: Int.MAX_VALUE
+                                if (idx >= videos.size - 6 && nextPage <= max && isLoading[currentTab] != true) {
+                                    triggerLoad(currentTab, lists, pages, maxPages, isLoading)
+                                }
+                            }
+                        }
+                    }
                 } else {
-                    // Simple loading indicator
                     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                         CircularProgressIndicator(Modifier.padding(16.dp))
                     }
                 }
             }
         }
+    }
+
+    @Composable
+    private fun VideoCard(video: com.github.tvbox.osc.bean.Movie.Video, onClick: () -> Unit) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onClick() }
+        ) {
+            // Poster via Picasso
+            AndroidView(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(110f / 160f),
+                factory = { ctx -> ImageView(ctx).apply { scaleType = ImageView.ScaleType.CENTER_CROP } },
+                update = { iv ->
+                    val pic = video.pic
+                    if (!pic.isNullOrEmpty()) {
+                        com.squareup.picasso.Picasso.get()
+                            .load(pic)
+                            .transform(
+                                RoundTransformation(
+                                    MD5.string2MD5("${'$'}pic-home")
+                                ).centerCorp(true)
+                                    .roundRadius(
+                                        com.blankj.utilcode.util.ConvertUtils.dp2px(10f),
+                                        RoundTransformation.RoundType.ALL
+                                    )
+                            )
+                            .placeholder(R.drawable.img_loading_placeholder)
+                            .error(R.drawable.img_loading_placeholder)
+                            .into(iv)
+                    } else {
+                        iv.setImageResource(R.drawable.img_loading_placeholder)
+                    }
+                }
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = video.name ?: "",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+
+    private fun triggerLoadIfNeeded(
+        index: Int,
+        lists: MutableMap<Int, MutableList<Movie.Video>>,
+        pages: MutableMap<Int, Int>,
+        maxPages: MutableMap<Int, Int>,
+        isLoading: MutableMap<Int, Boolean>
+    ) {
+        if ((lists[index] ?: emptyList()).isEmpty()) {
+            pages[index] = 1
+            maxPages[index] = Int.MAX_VALUE
+            triggerLoad(index, lists, pages, maxPages, isLoading)
+        }
+    }
+
+    private fun triggerLoad(
+        index: Int,
+        lists: MutableMap<Int, MutableList<Movie.Video>>,
+        pages: MutableMap<Int, Int>,
+        maxPages: MutableMap<Int, Int>,
+        isLoading: MutableMap<Int, Boolean>
+    ) {
+        if (isLoading[index] == true) return
+        val next = pages[index] ?: 1
+        val max = maxPages[index] ?: Int.MAX_VALUE
+        if (next > max) return
+        val sort = mSortDataList.getOrNull(index) ?: return
+        isLoading[index] = true
+        requestTabIndex = index
+        sourceViewModel?.getList(sort, next)
     }
 
     @Composable

@@ -1,5 +1,8 @@
 ## 项目说明
 
+* 使用Google Compose Meterial Design 设计风格的开源TVBOX
+* 去除java+xml，拥抱kotlin+compose
+
 **目录**
 ```
 jc-tv-app
