@@ -3,21 +3,15 @@ package com.github.tvbox.osc.ui.dialog;
 import android.content.Context;
 import android.os.Bundle;
 import android.view.Gravity;
-import android.view.View;
-import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.TextView;
-
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.DiffUtil;
-
 import com.blankj.utilcode.util.ConvertUtils;
 import com.github.tvbox.osc.R;
 import com.github.tvbox.osc.ui.adapter.SelectDialogAdapter;
 import com.owen.tvrecyclerview.widget.TvRecyclerView;
-
 import org.jetbrains.annotations.NotNull;
-
 import java.util.List;
 
 public class SelectDialog<T> extends BaseDialog {
