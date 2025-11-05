@@ -40,7 +40,7 @@ import com.chad.library.adapter.base.BaseQuickAdapter;
 import com.github.tvbox.osc.R;
 import com.github.tvbox.osc.api.ApiConfig;
 import com.github.tvbox.osc.base.App;
-import com.github.tvbox.osc.base.BaseVbActivity;
+import com.github.tvbox.osc.base.BaseActivity;
 import com.github.tvbox.osc.bean.AbsXml;
 import com.github.tvbox.osc.bean.CastVideo;
 import com.github.tvbox.osc.bean.Movie;
@@ -49,7 +49,6 @@ import com.github.tvbox.osc.bean.SourceBean;
 import com.github.tvbox.osc.bean.VodInfo;
 import com.github.tvbox.osc.cache.RoomDataManger;
 import com.github.tvbox.osc.constant.IntentKey;
-import com.github.tvbox.osc.databinding.ActivityDetailBinding;
 import com.github.tvbox.osc.event.RefreshEvent;
 import com.github.tvbox.osc.receiver.BatteryReceiver;
 import com.github.tvbox.osc.service.PlayService;
@@ -83,6 +82,7 @@ import com.lzy.okgo.callback.AbsCallback;
 import com.lzy.okgo.model.Response;
 import com.orhanobut.hawk.Hawk;
 import com.owen.tvrecyclerview.widget.V7LinearLayoutManager;
+import androidx.compose.ui.platform.ComposeView;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -107,7 +107,7 @@ import java.util.concurrent.Executors;
  * @description:
  */
 
-public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
+public class DetailActivity extends BaseActivity {
     private PlayFragment playFragment = null;
     private SourceViewModel sourceViewModel;
     private Movie.Video mVideo;
@@ -133,11 +133,21 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
      */
     boolean openBackgroundPlay;
     private BroadcastReceiver mRemoteActionReceiver;
+    // Compose lists view for flags and episodes
+    private ComposeView composeListsView = null;
+    // Compose action row and parse row
+    private ComposeView composeActionView = null;
+    private ComposeView composeParseView = null;
 
     /**
      * 截屏监听
      */
     ScreenShotListenManager screenShotListenManager;
+
+    // Compose full screen root and state for parse row
+    private ComposeView rootComposeView = null;
+    private List<ParseBean> parseItems = new ArrayList<>();
+    private int defaultParseIndex = 0;
 
     @Override
     protected void init() {
@@ -156,73 +166,40 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
     }
 
     @Override
+    protected int getLayoutResID() {
+        return -1;
+    }
+
+    @Override
+    protected void initVb() {
+        rootComposeView = new ComposeView(this);
+        setContentView(rootComposeView);
+        setLoadSir(rootComposeView);
+        updateFullCompose();
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
         openBackgroundPlay = false;
         playServerSwitch(false);
-        mBinding.ivPrivateBrowsing.postDelayed(NotificationUtils::cancelAll, 800);
+        // removed: ivPrivateBrowsing postDelayed
     }
 
     private void initView() {
-        mBinding.ivPrivateBrowsing.setVisibility(Hawk.get(HawkConfig.PRIVATE_BROWSING, false) ? View.VISIBLE : View.GONE);
-        mBinding.ivPrivateBrowsing.setOnClickListener(view -> ToastUtils.showShort("当前为无痕浏览"));
-        mBinding.previewPlayerPlace.setVisibility(showPreview ? View.VISIBLE : View.GONE);
-
-        mBinding.mGridView.setHasFixedSize(true);
-        mBinding.mGridView.setLayoutManager(new V7LinearLayoutManager(this.mContext, 0, false));
-        mBinding.mGridView.addItemDecoration(new LinearSpacingItemDecoration(20, false));
+        // removed: ivPrivateBrowsing & previewPlayerPlace (XML removed)
 
         seriesAdapter = new SeriesAdapter(false);
-        mBinding.mGridView.setAdapter(seriesAdapter);
-        mBinding.mGridViewFlag.setHasFixedSize(true);
         seriesFlagAdapter = new SeriesFlagAdapter();
-        mBinding.mGridViewFlag.setAdapter(seriesFlagAdapter);
+
+        // lists are rendered by Compose full screen
+
         isReverse = false;
         preFlag = "";
-        if (showPreview) {
-            playFragment = new PlayFragment();
-            getSupportFragmentManager().beginTransaction().add(R.id.previewPlayer, playFragment).commit();
-            getSupportFragmentManager().beginTransaction().show(playFragment).commitAllowingStateLoss();
-        }
+        // Player fragment will be attached after Compose creates container
 
-        findViewById(R.id.ll_title).setOnClickListener(view -> {
-            new XPopup.Builder(this)
-                    .isViewMode(true)
-                    .hasNavigationBar(false)
-                    .asCustom(new VideoDetailDialog(this, vodInfo))
-                    .show();
-        });
-        findViewById(R.id.tvDownload).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View view) {
-                use1DMDownload();
-            }
-        });
-        mBinding.tvSort.setOnClickListener(new View.OnClickListener() {
-            @SuppressLint("NotifyDataSetChanged")
-            @Override
-            public void onClick(View v) {
-                sortSeries();
-            }
-        });
-        mBinding.tvCast.setOnClickListener(v -> {
-            showCastDialog();
-        });
-        mBinding.tvCollect.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                String text = mBinding.tvCollect.getText().toString();
-                if ("加入收藏".equals(text)) {
-                    RoomDataManger.insertVodCollect(sourceKey, vodInfo);
-                    Toast.makeText(DetailActivity.this, "已加入收藏夹", Toast.LENGTH_SHORT).show();
-                    mBinding.tvCollect.setText("取消收藏");
-                } else {
-                    RoomDataManger.deleteVodCollect(sourceKey, vodInfo);
-                    Toast.makeText(DetailActivity.this, "已移除收藏夹", Toast.LENGTH_SHORT).show();
-                    mBinding.tvCollect.setText("加入收藏");
-                }
-            }
-        });
+        // removed: ll_title click (XML removed)
+        // removed: tvSort/tvCast/tvCollect (handled by Compose)
 
         seriesFlagAdapter.setOnItemClickListener((adapter, view, position) -> {
             chooseFlag(position);
@@ -236,43 +213,154 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
             }
         });
 
-        mBinding.tvAllSeries.setOnClickListener(view -> {
-            showAllSeriesDialog();
-        });
-
-        mBinding.tvSite.setOnClickListener(view -> {
-            startQuickSearch();
-            QuickSearchDialog quickSearchDialog = new QuickSearchDialog(DetailActivity.this);
-            EventBus.getDefault().post(new RefreshEvent(RefreshEvent.TYPE_QUICK_SEARCH, quickSearchData));
-            EventBus.getDefault().post(new RefreshEvent(RefreshEvent.TYPE_QUICK_SEARCH_WORD, quickSearchWord));
-            quickSearchDialog.show();
-            if (pauseRunnable != null && pauseRunnable.size() > 0) {
-                searchExecutorService = Executors.newFixedThreadPool(5);
-                for (Runnable runnable : pauseRunnable) {
-                    searchExecutorService.execute(runnable);
-                }
-                pauseRunnable.clear();
-                pauseRunnable = null;
-            }
-            quickSearchDialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
-                @Override
-                public void onDismiss(DialogInterface dialog) {
-                    try {
-                        if (searchExecutorService != null) {
-                            pauseRunnable = searchExecutorService.shutdownNow();
-                            searchExecutorService = null;
-                        }
-                    } catch (Throwable th) {
-                        th.printStackTrace();
-                    }
-                }
+        View tvAllSeries = findViewById(R.id.tvAllSeries);
+        if (tvAllSeries != null) {
+            tvAllSeries.setOnClickListener(view -> {
+                showAllSeriesDialog();
             });
-        });
-        mBinding.tvChangeLine.setOnClickListener(v -> {
-            FastClickCheckUtil.check(v);
-            quickLineChange();
-        });
-        setLoadSir(mBinding.llLayout);
+        }
+
+        View tvSite = findViewById(R.id.tvSite);
+        if (tvSite != null) {
+            tvSite.setOnClickListener(view -> {
+                startQuickSearch();
+                QuickSearchDialog quickSearchDialog = new QuickSearchDialog(DetailActivity.this);
+                EventBus.getDefault().post(new RefreshEvent(RefreshEvent.TYPE_QUICK_SEARCH, quickSearchData));
+                EventBus.getDefault().post(new RefreshEvent(RefreshEvent.TYPE_QUICK_SEARCH_WORD, quickSearchWord));
+                quickSearchDialog.show();
+                if (pauseRunnable != null && pauseRunnable.size() > 0) {
+                    searchExecutorService = Executors.newFixedThreadPool(5);
+                    for (Runnable runnable : pauseRunnable) {
+                        searchExecutorService.execute(runnable);
+                    }
+                    pauseRunnable.clear();
+                    pauseRunnable = null;
+                }
+                quickSearchDialog.setOnDismissListener(new DialogInterface.OnDismissListener() {
+                    @Override
+                    public void onDismiss(DialogInterface dialog) {
+                        try {
+                            if (searchExecutorService != null) {
+                                pauseRunnable = searchExecutorService.shutdownNow();
+                                searchExecutorService = null;
+                            }
+                        } catch (Throwable th) {
+                            th.printStackTrace();
+                        }
+                    }
+                });
+            });
+        }
+        // Compose content is managed by full Compose
+        updateFullCompose();
+    }
+
+    private void updateActionRow() {
+        if (composeActionView == null) return;
+        boolean isCollected = false;
+        try {
+            if (vodId != null && sourceKey != null) {
+                isCollected = RoomDataManger.isVodCollect(sourceKey, vodId);
+            }
+        } catch (Throwable ignored) {}
+        DetailComposeKt.setActionRowContent(
+                composeActionView,
+                isCollected,
+                () -> { showCastDialog(); },
+                () -> { toggleCollect(); updateActionRow(); },
+                () -> { use1DMDownload(); }
+        );
+    }
+
+    private void updateFullCompose() {
+        if (rootComposeView == null) return;
+        String name = (mVideo != null) ? mVideo.name : null;
+        String siteName = null;
+        try {
+            if (mVideo != null && mVideo.sourceKey != null) {
+                String srcName = ApiConfig.get().getSource(mVideo.sourceKey).getName();
+                siteName = (TextUtils.isEmpty(srcName) ? "未知" : srcName);
+            }
+        } catch (Throwable ignored) {}
+
+        List<VodInfo.VodSeriesFlag> flags = (vodInfo != null && vodInfo.seriesFlags != null) ? vodInfo.seriesFlags : new ArrayList<>();
+        String currentFlagName = (vodInfo != null) ? vodInfo.playFlag : null;
+        List<VodInfo.VodSeries> eps = new ArrayList<>();
+        if (vodInfo != null && vodInfo.seriesMap != null && currentFlagName != null) {
+            List<VodInfo.VodSeries> list = vodInfo.seriesMap.get(currentFlagName);
+            if (list != null) eps = list;
+        }
+        boolean isCollected = false;
+        try {
+            if (sourceKey != null && vodId != null) {
+                isCollected = RoomDataManger.isVodCollect(sourceKey, vodId);
+            }
+        } catch (Throwable ignored) {}
+
+        List<ParseBean> pItems = (parseItems != null) ? parseItems : new ArrayList<>();
+        int pDefault = defaultParseIndex;
+
+        DetailComposeKt.setFullDetailContent(
+                rootComposeView,
+                name,
+                siteName,
+                isCollected,
+                flags,
+                currentFlagName,
+                eps,
+                pItems,
+                pDefault,
+                () -> { showCastDialog(); },
+                () -> { toggleCollect(); updateFullCompose(); },
+                () -> { use1DMDownload(); },
+                index -> { chooseFlag(index); },
+                index -> { chooseSeries(index, false); },
+                index -> { quickLineChange(); }
+        );
+        // Ensure player container exists before attaching fragment
+        if (showPreview) {
+            rootComposeView.post(this::ensurePlayerContainerAndAttach);
+        }
+    }
+
+    private void ensurePlayerContainerAndAttach() {
+        if (!showPreview) return;
+        View pv = findViewById(R.id.previewPlayer);
+        if (pv == null) return;
+        try {
+            final String TAG = "PlayFragment";
+            androidx.fragment.app.FragmentManager fm = getSupportFragmentManager();
+            androidx.fragment.app.Fragment byId = fm.findFragmentById(R.id.previewPlayer);
+            if (byId instanceof PlayFragment) {
+                playFragment = (PlayFragment) byId;
+                return;
+            }
+            androidx.fragment.app.Fragment byTag = fm.findFragmentByTag(TAG);
+            if (byTag instanceof PlayFragment) {
+                playFragment = (PlayFragment) byTag;
+                fm.beginTransaction().replace(R.id.previewPlayer, playFragment, TAG).commitAllowingStateLoss();
+                return;
+            }
+            playFragment = new PlayFragment();
+            fm.beginTransaction().replace(R.id.previewPlayer, playFragment, TAG).commitAllowingStateLoss();
+        } catch (Throwable ignored) {}
+    }
+
+    private void toggleCollect() {
+        if (vodInfo == null || sourceKey == null || vodId == null) return;
+        boolean isVodCollect = RoomDataManger.isVodCollect(sourceKey, vodId);
+        if (!isVodCollect) {
+            RoomDataManger.insertVodCollect(sourceKey, vodInfo);
+            Toast.makeText(DetailActivity.this, "已加入收藏夹", Toast.LENGTH_SHORT).show();
+        } else {
+            RoomDataManger.deleteVodCollect(sourceKey, vodInfo);
+            Toast.makeText(DetailActivity.this, "已移除收藏夹", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void updateComposeLists() {
+        // Delegate to full compose updater
+        updateFullCompose();
     }
 
     @Override
@@ -369,6 +457,7 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
             vodInfo.playFlag = newFlag;
             seriesFlagAdapter.notifyItemChanged(position);
             refreshList();
+            updateComposeLists();
         }
     }
 
@@ -399,6 +488,7 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
             if (!showPreview || reload || reloadWithChangeLine) {
                 jumpToPlay();
             }
+            updateComposeLists();
         }
     }
 
@@ -440,9 +530,7 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
                 App.getInstance().setVodInfo(previewVodInfo);
             }
             playFragment.setData(bundle);
-
-            //定位选集
-            mBinding.mGridView.scrollToPosition(vodInfo.playIndex);
+            // 定位选集由 Compose 列表自身状态处理
         }
     }
 
@@ -465,6 +553,7 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
                 vodInfo.seriesMap.get(vodInfo.playFlag).get(vodInfo.playIndex).selected = true;
         }
         seriesAdapter.setNewData(vodInfo.seriesMap.get(vodInfo.playFlag));
+        updateComposeLists();
 
     }
 
@@ -480,14 +569,11 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
                     vodInfo.setVideo(mVideo);
                     vodInfo.sourceKey = mVideo.sourceKey;
 
-                    mBinding.tvName.setText(TextUtils.isEmpty(mVideo.name) ? "暂无信息" : mVideo.name);
-                    String srcName = ApiConfig.get().getSource(mVideo.sourceKey).getName();
-                    mBinding.tvSite.setText("来源：" + (TextUtils.isEmpty(srcName) ? "未知" : srcName));
+                    // Title/site bound in Compose
 
                     if (vodInfo.seriesMap != null && vodInfo.seriesMap.size() > 0) {//线路
-                        mBinding.mGridViewFlag.setVisibility(View.VISIBLE);
-                        mBinding.mGridView.setVisibility(View.VISIBLE);
-                        mBinding.mEmptyPlaylist.setVisibility(View.GONE);
+                        View mEmptyPlaylist = findViewById(R.id.mEmptyPlaylist);
+                        if (mEmptyPlaylist != null) mEmptyPlaylist.setVisibility(View.GONE);
 
                         VodInfo vodInfoRecord = RoomDataManger.getVodInfo(sourceKey, vodId);
                         // 读取历史记录
@@ -516,29 +602,30 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
                             if (flag.name.equals(vodInfo.playFlag)) {
                                 flagScrollTo = j;
                                 flag.selected = true;
-                            } else
+                            } else {
                                 flag.selected = false;
+                            }
                         }
-//                        setTextShow(tvPlayUrl, "播放地址：", vodInfo.seriesMap.get(vodInfo.playFlag).get(0).url);
-                        //设置线路数据
+                        // 设置线路数据
                         seriesFlagAdapter.setNewData(vodInfo.seriesFlags);
-                        mBinding.mGridViewFlag.scrollToPosition(flagScrollTo);
 
                         refreshList();
+                        updateFullCompose();
                         if (showPreview) {
                             jumpToPlay();
-                            mBinding.previewPlayer.setVisibility(View.VISIBLE);
+                            View pv = findViewById(R.id.previewPlayer);
+                            if (pv != null) pv.setVisibility(View.VISIBLE);
                             toggleSubtitleTextSize();
                         }
-                        // startQuickSearch();
-                    } else {//空布局
-                        mBinding.mGridViewFlag.setVisibility(View.GONE);
-                        mBinding.mGridView.setVisibility(View.GONE);
-                        mBinding.mEmptyPlaylist.setVisibility(View.VISIBLE);
+                    } else { // 空布局
+                        showEmpty();
+                        View pv = findViewById(R.id.previewPlayer);
+                        if (pv != null) pv.setVisibility(View.GONE);
                     }
                 } else {
                     showEmpty();
-                    mBinding.previewPlayer.setVisibility(View.GONE);
+                    View pv = findViewById(R.id.previewPlayer);
+                    if (pv != null) pv.setVisibility(View.GONE);
                 }
             }
         });
@@ -565,12 +652,7 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
             sourceKey = key;
             showLoading();
             sourceViewModel.getDetail(sourceKey, vodId);
-            boolean isVodCollect = RoomDataManger.isVodCollect(sourceKey, vodId);
-            if (isVodCollect) {
-                mBinding.tvCollect.setText("取消收藏");
-            } else {
-                mBinding.tvCollect.setText("加入收藏");
-            }
+            updateFullCompose();
         }
     }
 
@@ -778,7 +860,6 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
         }
         if (fullWindows) {
             toggleFullPreview();
-            mBinding.mGridView.requestFocus();
             return;
         }
         super.onBackPressed();
@@ -804,7 +885,8 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
 
     public void toggleFullPreview() {
         if (windowsPreview == null) {
-            windowsPreview = mBinding.previewPlayer.getLayoutParams();
+            View pv = findViewById(R.id.previewPlayer);
+            if (pv != null) windowsPreview = pv.getLayoutParams();
         }
         if (windowsFull == null) {//全屏尺寸
             windowsFull = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
@@ -814,13 +896,11 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
         //交由fragment处理播放器全屏逻辑
         playFragment.changedLandscape(fullWindows);
         //activity处理预览尺寸(全屏/非全屏预览)
-        mBinding.previewPlayer.setLayoutParams(fullWindows ? windowsFull : windowsPreview);
-        mBinding.mGridView.setVisibility(fullWindows ? View.GONE : View.VISIBLE);
-        mBinding.mGridViewFlag.setVisibility(fullWindows ? View.GONE : View.VISIBLE);
+        View pv = findViewById(R.id.previewPlayer);
+        if (pv != null) pv.setLayoutParams(fullWindows ? windowsFull : windowsPreview);
 
         //全屏下禁用详情页几个按键的焦点 防止上键跑过来
-        mBinding.tvSort.setFocusable(!fullWindows);
-        mBinding.tvCollect.setFocusable(!fullWindows);
+        // removed: tvSort focusable
         toggleSubtitleTextSize();
     }
 
@@ -1008,14 +1088,12 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
             if (currentIndex >= flags.size()) {
                 currentIndex = 0;
             }
-            mBinding.mGridViewFlag.smoothScrollToPosition(currentIndex);
             chooseFlag(currentIndex);
-            mBinding.mGridView.postDelayed(() -> chooseSeries(vodInfo.playIndex, true), 300);
+            chooseSeries(vodInfo.playIndex, true);
         }
     }
 
     public void showParseRoot(boolean show, ParseAdapter adapter) {
-        mBinding.rvParse.setAdapter(adapter);
         int defaultIndex = 0;
         for (int i = 0; i < adapter.getData().size(); i++) {
             if (adapter.getData().get(i).isDefault()) {
@@ -1023,10 +1101,11 @@ public class DetailActivity extends BaseVbActivity<ActivityDetailBinding> {
                 break;
             }
         }
-        if (defaultIndex != 0) {
-            mBinding.rvParse.scrollToPosition(defaultIndex);
-        }
-        mBinding.parseRoot.setVisibility(show ? View.VISIBLE : View.GONE);
+        parseItems = adapter.getData();
+        defaultParseIndex = defaultIndex;
+        updateFullCompose();
+        View pr = findViewById(R.id.parse_root);
+        if (pr != null) pr.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
     private void toggleScreenShotListen(boolean open) {

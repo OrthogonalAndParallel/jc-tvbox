@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item type="id" name="previewPlayer" />
+    <item type="id" name="parse_root" />
+    <item type="id" name="mEmptyPlaylist" />
+    <item type="id" name="tvSite" />
+    <item type="id" name="tvAllSeries" />
+</resources>
