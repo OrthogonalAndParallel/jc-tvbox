@@ -201,7 +201,7 @@ private fun AboutBottomSheetContent(onClose: () -> Unit) {
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "项目地址: https://github.com/OrthogonalAndParallel/TVBoxOS-Mobile",
+            text = "项目地址: https://github.com/OrthogonalAndParallel/jc-tvbox",
             style = MaterialTheme.typography.bodySmall
         )
         Spacer(modifier = Modifier.height(16.dp))
@@ -246,7 +246,7 @@ private fun MyScaffold(
                 ),
                 title = {
                     Text(
-                        text = "JCBox",
+                        text = "我的",
                         style = MaterialTheme.typography.titleLarge,
                         maxLines = 1
                     )
