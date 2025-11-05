@@ -2,6 +2,9 @@ package com.github.tvbox.osc.ui.activity
 
 import androidx.fragment.app.Fragment
 import com.github.tvbox.osc.base.BaseActivity
+import com.gyf.immersionbar.ImmersionBar
+import com.github.tvbox.osc.util.Utils
+import android.graphics.drawable.ColorDrawable
 import com.github.tvbox.osc.constant.IntentKey
 import com.github.tvbox.osc.ui.fragment.HomeComposeFragment
 import com.github.tvbox.osc.ui.fragment.MyComposeFragment
@@ -36,11 +39,14 @@ class MainActivity : BaseActivity() {
 
     override fun init() {
         useCacheConfig = intent.extras?.getBoolean(IntentKey.CACHE_CONFIG_CHANGED, false)?:false
-        WindowCompat.setDecorFitsSystemWindows(window, false)
-        window.statusBarColor = AndroidColor.TRANSPARENT
-        window.navigationBarColor = AndroidColor.TRANSPARENT
-        val controller = WindowCompat.getInsetsController(window, window.decorView)
-        controller.isAppearanceLightNavigationBars = true
+        // Make status bar transparent so first visible fragment can recolor immediately
+        // Also set a neutral window background close to TopBar surface to avoid white first-frame
+        val bgColor = if (!Utils.isDarkTheme()) 0xFFF5F5F5.toInt() else 0xFF121212.toInt()
+        window.setBackgroundDrawable(ColorDrawable(bgColor))
+        ImmersionBar.with(this)
+            .transparentStatusBar()
+            .statusBarDarkFont(!Utils.isDarkTheme())
+            .init()
     }
 
     override fun getLayoutResID(): Int = -1

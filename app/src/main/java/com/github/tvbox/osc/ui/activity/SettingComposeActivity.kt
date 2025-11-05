@@ -501,7 +501,7 @@ private fun SettingScreen(
                 .fillMaxSize()
                 .verticalScroll(scroll)
                 .padding(innerPadding)
-                .padding(horizontal = 20.dp, vertical = 10.dp)
+                .padding(horizontal = 20.dp, vertical = 20.dp)
         ) {
             SettingsCard {
                 RowItem(label = "主页内容", value = state.homeRec.value) { /* future: selection */ }

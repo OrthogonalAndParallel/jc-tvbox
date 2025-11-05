@@ -255,7 +255,9 @@ private fun MyScaffold(
         }
     ) { innerPadding ->
         MyScreen(
-            modifier = Modifier.padding(innerPadding),
+            modifier = Modifier
+                .padding(innerPadding)
+                .padding(horizontal = 20.dp, vertical = 20.dp),
             onSubscription = onSubscription,
             onHistory = onHistory,
             onFavorite = onFavorite,
@@ -290,7 +292,7 @@ private fun MyScreen(
         Column(
             modifier = Modifier
                 .weight(1f)
-                .padding(20.dp)
+                .padding(0.dp)
                 .verticalScroll(scroll)
         ) {
             Card(

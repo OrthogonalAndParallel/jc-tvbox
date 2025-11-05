@@ -72,8 +72,13 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
-import androidx.core.view.WindowCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import android.app.Activity
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import com.gyf.immersionbar.ImmersionBar
+import com.github.tvbox.osc.util.Utils
 import com.github.tvbox.osc.bean.Movie
 import com.owen.tvrecyclerview.widget.TvRecyclerView
 import com.owen.tvrecyclerview.widget.V7GridLayoutManager
@@ -105,6 +110,14 @@ class HomeComposeFragment : Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View {
+        // Fallback: make status bar transparent before first compose so TopBar color shows immediately
+        activity?.let { act ->
+            val light = !Utils.isDarkTheme()
+            ImmersionBar.with(act)
+                .transparentStatusBar()
+                .statusBarDarkFont(light)
+                .init()
+        }
         return ComposeView(requireContext()).apply {
             setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
             setContent {
@@ -234,34 +247,46 @@ class HomeComposeFragment : Fragment() {
                 .fillMaxWidth()
                 .clickable { onClick() }
         ) {
-            // Poster via Picasso
-            AndroidView(
+            // Poster with fixed aspect, same size for placeholder and loaded image
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(110f / 160f),
-                factory = { ctx -> ImageView(ctx).apply { scaleType = ImageView.ScaleType.CENTER_CROP } },
-                update = { iv ->
-                    val pic = video.pic
-                    if (!pic.isNullOrEmpty()) {
-                        com.squareup.picasso.Picasso.get()
-                            .load(pic)
-                            .transform(
-                                RoundTransformation(
-                                    MD5.string2MD5("${'$'}pic-home")
-                                ).centerCorp(true)
-                                    .roundRadius(
-                                        com.blankj.utilcode.util.ConvertUtils.dp2px(10f),
-                                        RoundTransformation.RoundType.ALL
-                                    )
-                            )
-                            .placeholder(R.drawable.img_loading_placeholder)
-                            .error(R.drawable.img_loading_placeholder)
-                            .into(iv)
-                    } else {
-                        iv.setImageResource(R.drawable.img_loading_placeholder)
+                    .aspectRatio(110f / 160f)
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                AndroidView(
+                    modifier = Modifier.fillMaxSize(),
+                    factory = { ctx ->
+                        ImageView(ctx).apply {
+                            layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                            scaleType = ImageView.ScaleType.CENTER_CROP
+                            adjustViewBounds = false
+                        }
+                    },
+                    update = { iv ->
+                        val pic = video.pic
+                        if (!pic.isNullOrEmpty()) {
+                            com.squareup.picasso.Picasso.get()
+                                .load(pic)
+                                .transform(
+                                    RoundTransformation(
+                                        MD5.string2MD5("${'$'}pic-home")
+                                    ).centerCorp(true)
+                                        .roundRadius(
+                                            com.blankj.utilcode.util.ConvertUtils.dp2px(10f),
+                                            RoundTransformation.RoundType.ALL
+                                        )
+                                )
+                                .placeholder(R.drawable.img_loading_placeholder)
+                                .error(R.drawable.img_loading_placeholder)
+                                .into(iv)
+                        } else {
+                            iv.setImageResource(R.drawable.img_loading_placeholder)
+                        }
                     }
-                }
-            )
+                )
+            }
             Spacer(Modifier.height(4.dp))
             Text(
                 text = video.name ?: "",
@@ -323,13 +348,40 @@ class HomeComposeFragment : Fragment() {
         )
 
         val view = LocalView.current
+        val lifecycleOwner = LocalLifecycleOwner.current
         SideEffect {
-            val window = (view.context as? Activity)?.window
-            if (window != null) {
-                window.statusBarColor = container.toArgb()
-                val controller = WindowCompat.getInsetsController(window, window.decorView)
-                controller.isAppearanceLightStatusBars = container.luminance() > 0.5f
+            val activity = (view.context as? Activity)
+            if (activity != null) {
+                val argb = container.toArgb()
+                val light = container.luminance() > 0.5f
+                // Delegate to ImmersionBar to avoid conflicts with BaseActivity settings
+                ImmersionBar.with(activity)
+                    .fitsSystemWindows(false)
+                    .statusBarColorInt(argb)
+                    .navigationBarColorInt(argb)
+                    .statusBarDarkFont(light)
+                    .init()
             }
+        }
+        // Re-apply on resume to fix first-enter mismatch
+        DisposableEffect(lifecycleOwner, container) {
+            val observer = LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    val activity = (view.context as? Activity)
+                    if (activity != null) {
+                        val argb = container.toArgb()
+                        val light = container.luminance() > 0.5f
+                        ImmersionBar.with(activity)
+                            .fitsSystemWindows(false)
+                            .statusBarColorInt(argb)
+                            .navigationBarColorInt(argb)
+                            .statusBarDarkFont(light)
+                            .init()
+                    }
+                }
+            }
+            lifecycleOwner.lifecycle.addObserver(observer)
+            onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
         }
         CenterAlignedTopAppBar(
             modifier = Modifier.statusBarsPadding(),
