@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
@@ -46,6 +47,7 @@ import com.github.tvbox.osc.ui.dialog.SelectDialog
 import com.github.tvbox.osc.ui.dialog.TipDialog
 import com.github.tvbox.osc.ui.adapter.SelectDialogAdapter.SelectDialogInterface
 import com.github.tvbox.osc.util.DefaultConfig
+import com.github.tvbox.osc.util.Platform
 import com.github.tvbox.osc.util.HawkConfig
 import com.github.tvbox.osc.viewmodel.SourceViewModel
 import com.github.tvbox.osc.server.ControlManager
@@ -72,6 +74,7 @@ import com.github.tvbox.osc.util.MD5
 import com.github.tvbox.osc.picasso.RoundTransformation
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.SideEffect
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalView
@@ -85,6 +88,9 @@ import com.github.tvbox.osc.util.Utils
 import com.github.tvbox.osc.bean.Movie
 import com.owen.tvrecyclerview.widget.TvRecyclerView
 import com.owen.tvrecyclerview.widget.V7GridLayoutManager
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.foundation.focusable
 
 class HomeComposeFragment : Fragment() {
 
@@ -133,6 +139,8 @@ class HomeComposeFragment : Fragment() {
 
     @Composable
     private fun HomeScreen() {
+        val context = LocalContext.current
+        val tvUi = remember { Platform.useTvUi(context) }
         var currentTab by rememberSaveable { mutableStateOf(0) }
         var tabTitles by remember { mutableStateOf(listOf<String>()) }
         var homeName by remember { mutableStateOf(getString(R.string.app_name)) }
@@ -238,13 +246,13 @@ class HomeComposeFragment : Fragment() {
                         LazyVerticalGrid(
                             modifier = Modifier.fillMaxSize(),
                             state = gridState,
-                            columns = GridCells.Fixed(3),
+                            columns = GridCells.Fixed(if (tvUi) 5 else 3),
                             contentPadding = PaddingValues(12.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             itemsIndexed(videos) { _, video ->
-                                VideoCard(video = video, onClick = {
+                                VideoCard(video = video, tvUi = tvUi, onClick = {
                                     val intent = Intent(requireContext(), FastSearchActivity::class.java)
                                     intent.putExtra("title", video.name)
                                     startActivity(intent)
@@ -262,10 +270,14 @@ class HomeComposeFragment : Fragment() {
     }
 
     @Composable
-    private fun VideoCard(video: com.github.tvbox.osc.bean.Movie.Video, onClick: () -> Unit) {
+    private fun VideoCard(video: com.github.tvbox.osc.bean.Movie.Video, tvUi: Boolean, onClick: () -> Unit) {
+        var focused by remember { mutableStateOf(false) }
+        val scale by animateFloatAsState(targetValue = if (tvUi && focused) 1.06f else 1f, label = "focus-scale")
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .graphicsLayer(scaleX = scale, scaleY = scale)
+                .then(if (tvUi) Modifier.focusable().onFocusChanged { focused = it.isFocused } else Modifier)
                 .clickable { onClick() }
         ) {
             // Poster with fixed aspect, same size for placeholder and loaded image
