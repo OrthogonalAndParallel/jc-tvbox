@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Save
+import androidx.compose.material.icons.outlined.SelectAll
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -452,10 +455,12 @@ class SubscriptionActivity : BaseActivity() {
                                 colors = colors,
                                 title = { Text(text = "订阅管理") },
                                 actions = {
+                                    // 使用说明
                                     IconButton(onClick = { showTip.value = true }) {
                                         Icon(Icons.Outlined.Info, contentDescription = "使用说明")
                                     }
-                                    TextButton(onClick = {
+                                    // 保存合并仓
+                                    IconButton(onClick = {
                                         val mergedUrls = ArrayList<String>()
                                         for (s in mSubscriptions) {
                                             if (s.isChecked) mergedUrls.add(s.url)
@@ -471,7 +476,51 @@ class SubscriptionActivity : BaseActivity() {
                                             overridePendingTransition(R.anim.fade_in, R.anim.fade_out)
                                         }
                                         ToastUtils.showShort("已保存合并仓选择")
-                                    }) { Text("保存") }
+                                    }) {
+                                        Icon(Icons.Outlined.Save, contentDescription = "保存")
+                                    }
+                                    // 全选/全不选
+                                    IconButton(onClick = {
+                                        val allChecked = mSubscriptions.isNotEmpty() && mSubscriptions.all { it.isChecked }
+                                        for (i in mSubscriptions.indices) {
+                                            mSubscriptions[i].isChecked = !allChecked
+                                        }
+                                        mSubscriptionAdapter.notifyDataSetChanged()
+                                        val mergedUrls = ArrayList<String>()
+                                        for (s in mSubscriptions) {
+                                            if (s.isChecked) mergedUrls.add(s.url)
+                                        }
+                                        Hawk.put(HawkConfig.API_URLS, mergedUrls)
+                                        ToastUtils.showShort(if (allChecked) "已全不选" else "已全选")
+                                    }) {
+                                        Icon(Icons.Outlined.SelectAll, contentDescription = "全选/全不选")
+                                    }
+                                    // 删除选中（跳过当前使用）
+                                    IconButton(onClick = {
+                                        val toDelete = mSubscriptions.filter { it.isChecked && it.url != mSelectedUrl }
+                                        val skippedCurrent = mSubscriptions.any { it.isChecked && it.url == mSelectedUrl }
+                                        if (toDelete.isEmpty() && !skippedCurrent) {
+                                            ToastUtils.showShort("未选择要删除的订阅")
+                                            return@IconButton
+                                        }
+                                        if (toDelete.isNotEmpty()) {
+                                            mSubscriptions.removeAll(toDelete.toSet())
+                                            mSubscriptionAdapter.setNewData(mSubscriptions)
+                                            Hawk.put<List<Subscription>?>(HawkConfig.SUBSCRIPTIONS, mSubscriptions)
+                                            val mergedUrls = ArrayList<String>()
+                                            for (s in mSubscriptions) {
+                                                if (s.isChecked) mergedUrls.add(s.url)
+                                            }
+                                            Hawk.put(HawkConfig.API_URLS, mergedUrls)
+                                            ToastUtils.showShort("已删除选中订阅")
+                                        }
+                                        if (skippedCurrent) {
+                                            ToastUtils.showShort("已跳过当前使用订阅")
+                                        }
+                                    }) {
+                                        Icon(Icons.Outlined.Delete, contentDescription = "删除选中")
+                                    }
+                                    // 添加
                                     IconButton(onClick = {
                                         addName.value = "订阅: ${mSubscriptions.size + 1}"
                                         addUrl.value = ""
