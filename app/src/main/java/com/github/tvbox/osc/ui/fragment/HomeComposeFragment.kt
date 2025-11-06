@@ -601,8 +601,6 @@ class HomeComposeFragment : Fragment() {
         val sites = ApiConfig.get().sourceBeanList
         if (sites.isNotEmpty()) {
             val dialog = SelectDialog<SourceBean>(requireActivity())
-            val tvRecyclerView = dialog.findViewById<TvRecyclerView>(R.id.list)
-            tvRecyclerView.layoutManager = V7GridLayoutManager(dialog.context, 2)
             dialog.setTip("请选择首页数据源")
             dialog.setAdapter(object : SelectDialogInterface<SourceBean?> {
                 override fun click(value: SourceBean?, pos: Int) {

@@ -1,60 +1,52 @@
 package com.github.tvbox.osc.ui.dialog;
 
 import android.content.Context;
-import android.os.Bundle;
-import android.view.Gravity;
-import android.view.WindowManager;
-import android.widget.TextView;
 import androidx.annotation.NonNull;
+import androidx.fragment.app.FragmentActivity;
 import androidx.recyclerview.widget.DiffUtil;
-import com.blankj.utilcode.util.ConvertUtils;
-import com.github.tvbox.osc.R;
 import com.github.tvbox.osc.ui.adapter.SelectDialogAdapter;
-import com.owen.tvrecyclerview.widget.TvRecyclerView;
 import org.jetbrains.annotations.NotNull;
 import java.util.List;
 
-public class SelectDialog<T> extends BaseDialog {
+/**
+ * Compose-based popup dialog wrapper that preserves the original Java API.
+ * Internally delegates to SelectComposeDialogFragment for lifecycle-correct Compose UI.
+ */
+public class SelectDialog<T> extends android.app.Dialog {
+    private final FragmentActivity activity;
+    private final SelectComposeDialogFragment<T> fragment;
 
     public SelectDialog(@NonNull @NotNull Context context) {
-        super(context);
-        setContentView(R.layout.dialog_select);
+        super(context, com.github.tvbox.osc.R.style.CustomDialogStyle);
+        if (!(context instanceof FragmentActivity)) {
+            throw new IllegalArgumentException("SelectDialog requires a FragmentActivity context");
+        }
+        this.activity = (FragmentActivity) context;
+        this.fragment = new SelectComposeDialogFragment<>();
     }
 
     public SelectDialog(@NonNull @NotNull Context context, int resId) {
-        super(context);
-        setContentView(resId);
+        this(context);
     }
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    public void show() {
+        fragment.safeShow(activity.getSupportFragmentManager(), "SelectDialog");
+    }
 
-        WindowManager.LayoutParams lp = new WindowManager.LayoutParams();
-        lp.copyFrom(getWindow().getAttributes());
-        lp.gravity = Gravity.CENTER;
-        lp.width = ConvertUtils.dp2px(330);
-        getWindow().setAttributes(lp);
-        getWindow().setWindowAnimations(R.style.DialogFadeAnimation); // Set the animation style
-        findViewById(R.id.iv_close).setOnClickListener(view -> dismiss());
+    @Override
+    public void dismiss() {
+        if (fragment.isAdded()) fragment.dismissAllowingStateLoss();
     }
 
     public void setTip(String tip) {
-        ((TextView) findViewById(R.id.title)).setText(tip);
+        fragment.setTip(tip);
     }
 
-    public void setAdapter(SelectDialogAdapter.SelectDialogInterface<T> sourceBeanSelectDialogInterface, DiffUtil.ItemCallback<T> sourceBeanItemCallback, List<T> data, int select) {
-        SelectDialogAdapter<T> adapter = new SelectDialogAdapter(sourceBeanSelectDialogInterface, sourceBeanItemCallback);
-        adapter.setData(data, select);
-        TvRecyclerView tvRecyclerView = ((TvRecyclerView) findViewById(R.id.list));
-        tvRecyclerView.setAdapter(adapter);
-        tvRecyclerView.setSelectedPosition(select);
-        tvRecyclerView.post(new Runnable() {
-            @Override
-            public void run() {
-                tvRecyclerView.smoothScrollToPosition(select);
-                tvRecyclerView.setSelectionWithSmooth(select);
-            }
-        });
+    public void setAdapter(SelectDialogAdapter.SelectDialogInterface<T> sourceBeanSelectDialogInterface,
+                           DiffUtil.ItemCallback<T> sourceBeanItemCallback,
+                           List<T> data,
+                           int select) {
+        fragment.setAdapter(sourceBeanSelectDialogInterface, sourceBeanItemCallback, data, select);
     }
 }
