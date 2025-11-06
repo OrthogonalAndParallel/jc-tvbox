@@ -59,9 +59,12 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import android.widget.ImageView
@@ -209,25 +212,43 @@ class HomeComposeFragment : Fragment() {
                             CircularProgressIndicator(Modifier.align(Alignment.Center))
                         }
                     } else {
+                        val gridState = rememberLazyGridState()
+                        val shouldLoadMore by remember(currentTab, videos.size) {
+                            derivedStateOf {
+                                val info = gridState.layoutInfo
+                                val total = info.totalItemsCount
+                                if (total == 0) return@derivedStateOf false
+                                val last = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+                                last >= total - 6
+                            }
+                        }
+                        val reachEndNoScroll by remember(currentTab, videos.size) {
+                            derivedStateOf { !gridState.canScrollForward }
+                        }
+                        LaunchedEffect(shouldLoadMore, reachEndNoScroll, currentTab, videos.size) {
+                            if (shouldLoadMore || reachEndNoScroll) {
+                                val nextPage = pages[currentTab] ?: 1
+                                val max = maxPages[currentTab] ?: Int.MAX_VALUE
+                                val canLoadMore = nextPage <= max && (isLoading[currentTab] != true)
+                                if (canLoadMore) {
+                                    triggerLoad(currentTab, lists, pages, maxPages, isLoading)
+                                }
+                            }
+                        }
                         LazyVerticalGrid(
                             modifier = Modifier.fillMaxSize(),
+                            state = gridState,
                             columns = GridCells.Fixed(3),
                             contentPadding = PaddingValues(12.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            itemsIndexed(videos) { idx, video ->
+                            itemsIndexed(videos) { _, video ->
                                 VideoCard(video = video, onClick = {
                                     val intent = Intent(requireContext(), FastSearchActivity::class.java)
                                     intent.putExtra("title", video.name)
                                     startActivity(intent)
                                 })
-                                // Load more trigger when nearing end
-                                val nextPage = pages[currentTab] ?: 1
-                                val max = maxPages[currentTab] ?: Int.MAX_VALUE
-                                if (idx >= videos.size - 6 && nextPage <= max && isLoading[currentTab] != true) {
-                                    triggerLoad(currentTab, lists, pages, maxPages, isLoading)
-                                }
                             }
                         }
                     }
