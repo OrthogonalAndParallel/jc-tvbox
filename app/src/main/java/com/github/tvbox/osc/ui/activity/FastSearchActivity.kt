@@ -82,6 +82,10 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.ui.platform.LocalContext
 
 class FastSearchActivity : BaseActivity(), TextWatcher {
 
@@ -321,80 +325,91 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
                         }
                         Box(modifier = Modifier.weight(1f).fillMaxHeight().padding(horizontal = 10.dp)) {
                             val list = if (isFilterModeState.value) filterVideos else mainVideos
-                            androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.fillMaxSize()) {
-                                items(list.size) { idx ->
-                                    val video = list[idx]
-                                    Row(
+                            // TV/Phone 列数：TV 5 列，手机 2 列
+                            val ctx = LocalContext.current
+                            val columns = if (com.github.tvbox.osc.util.Platform.useTvUi(ctx)) GridCells.Fixed(5) else GridCells.Fixed(2)
+                            LazyVerticalGrid(
+                                columns = columns,
+                                modifier = Modifier.fillMaxSize(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(list) { video ->
+                                    Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(vertical = 8.dp)
                                             .clickable {
                                                 val bundle = android.os.Bundle()
                                                 bundle.putString("id", video.id)
                                                 bundle.putString("sourceKey", video.sourceKey)
                                                 jumpActivity(DetailActivity::class.java, bundle)
-                                            },
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        // Preview Image (110x160dp) with rounded corners
-                                        AndroidView(
-                                            modifier = Modifier
-                                                .width(110.dp)
-                                                .height(160.dp),
-                                            factory = { ctx -> ImageView(ctx) },
-                                            update = { iv ->
-                                                val pic = video.pic
-                                                if (!pic.isNullOrEmpty()) {
-                                                    com.squareup.picasso.Picasso.get()
-                                                        .load(pic)
-                                                        .transform(
-                                                            RoundTransformation(
-                                                                MD5.string2MD5("${'$'}picposition=${'$'}idx")
-                                                            ).centerCorp(true)
-                                                                .override(
-                                                                    com.blankj.utilcode.util.ConvertUtils.dp2px(110f),
-                                                                    com.blankj.utilcode.util.ConvertUtils.dp2px(160f)
-                                                                )
-                                                                .roundRadius(
-                                                                    com.blankj.utilcode.util.ConvertUtils.dp2px(20f),
-                                                                    RoundTransformation.RoundType.ALL
-                                                                )
-                                                        )
-                                                        .placeholder(R.drawable.img_loading_placeholder)
-                                                        .error(R.drawable.img_loading_placeholder)
-                                                        .into(iv)
-                                                } else {
-                                                    iv.setImageResource(R.drawable.img_loading_placeholder)
-                                                }
                                             }
-                                        )
-                                        Spacer(modifier = Modifier.width(12.dp))
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = video.name ?: "",
-                                                style = MaterialTheme.typography.titleMedium,
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
+                                    ) {
+                                        // 与首页一致：固定比例 110:160，圆角 10dp，占位使用 surfaceVariant
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .aspectRatio(110f / 160f)
+                                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                        ) {
+                                            AndroidView(
+                                                modifier = Modifier.fillMaxSize(),
+                                                factory = { ctx ->
+                                                    ImageView(ctx).apply {
+                                                        layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                                                        scaleType = ImageView.ScaleType.CENTER_CROP
+                                                        adjustViewBounds = false
+                                                    }
+                                                },
+                                                update = { iv ->
+                                                    val pic = video.pic
+                                                    if (!pic.isNullOrEmpty()) {
+                                                        com.squareup.picasso.Picasso.get()
+                                                            .load(pic)
+                                                            .transform(
+                                                                RoundTransformation(
+                                                                    MD5.string2MD5("${'$'}pic-home")
+                                                                ).centerCorp(true)
+                                                                    .roundRadius(
+                                                                        com.blankj.utilcode.util.ConvertUtils.dp2px(10f),
+                                                                        RoundTransformation.RoundType.ALL
+                                                                    )
+                                                            )
+                                                            .placeholder(R.drawable.img_loading_placeholder)
+                                                            .error(R.drawable.img_loading_placeholder)
+                                                            .into(iv)
+                                                    } else {
+                                                        iv.setImageResource(R.drawable.img_loading_placeholder)
+                                                    }
+                                                }
                                             )
-                                            Spacer(modifier = Modifier.height(4.dp))
+                                        }
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Text(
+                                            text = video.name ?: "",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = com.github.tvbox.osc.api.ApiConfig.get().getSource(video.sourceKey).name,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        if (!video.note.isNullOrEmpty()) {
+                                            Spacer(modifier = Modifier.height(2.dp))
                                             Text(
-                                                text = com.github.tvbox.osc.api.ApiConfig.get().getSource(video.sourceKey).name,
+                                                text = video.note ?: "",
                                                 style = MaterialTheme.typography.bodySmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
-                                            if (!video.note.isNullOrEmpty()) {
-                                                Spacer(modifier = Modifier.height(2.dp))
-                                                Text(
-                                                    text = video.note ?: "",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                    maxLines = 1,
-                                                    overflow = TextOverflow.Ellipsis
-                                                )
-                                            }
                                         }
                                     }
                                 }
@@ -473,7 +488,9 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
         isFilterModeState.value = true
         searchFilterKeyState.value = key
         val list: List<Movie.Video> = (resultVods[key]) ?: emptyList()
-        searchAdapterFilter.setNewData(list)
+        // Update Compose-backed filtered list so the right panel refreshes
+        filterVideos.clear()
+        filterVideos.addAll(list)
     }
 
     private fun initData() {
