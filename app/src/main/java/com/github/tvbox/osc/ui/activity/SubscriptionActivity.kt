@@ -82,7 +82,9 @@ import java.util.function.Consumer
 class SubscriptionActivity : BaseActivity() {
 
     private var mBeforeUrl = Hawk.get(HawkConfig.API_URL, "")
-    private var mSelectedUrl = ""
+    private var mSelectedUrl = mBeforeUrl
+    private var mBeforeUrls: MutableList<String> = Hawk.get(HawkConfig.API_URLS, ArrayList())
+    private var mergedChanged: Boolean = false
     private var mSubscriptions: MutableList<Subscription> = Hawk.get(HawkConfig.SUBSCRIPTIONS, ArrayList())
     private var mSubscriptionAdapter = SubscriptionAdapter()
     private val mSources: MutableList<Source> = ArrayList()
@@ -98,37 +100,45 @@ class SubscriptionActivity : BaseActivity() {
     private var permChecked: Boolean = false
 
     override fun init() {
-        mSubscriptions.forEach(Consumer { item: Subscription ->
-            if (item.isChecked) {
-                mSelectedUrl = item.url
+        // 当前订阅取自 API_URL；复选框用于合并选择
+        val savedMerged: MutableList<String> = Hawk.get(HawkConfig.API_URLS, ArrayList())
+        if (savedMerged.isNotEmpty()) {
+            for (i in mSubscriptions.indices) {
+                val sub = mSubscriptions[i]
+                sub.isChecked = savedMerged.contains(sub.url)
             }
-        })
+        }
         mSubscriptionAdapter.setNewData(mSubscriptions)
 
         mSubscriptionAdapter.setOnItemChildClickListener { _: BaseQuickAdapter<*, *>?, view: View, position: Int ->
-            LogUtils.d("删除订阅")
             if (view.id == R.id.iv_del) {
-                if (mSubscriptions.get(position).isChecked) {
+                if (mSubscriptions[position].url == mSelectedUrl) {
                     ToastUtils.showShort("不能删除当前使用的订阅")
                     return@setOnItemChildClickListener
                 }
                 deletePos = position
                 showDelete.value = true
+            } else if (view.id == R.id.cb) {
+                val item = mSubscriptions[position]
+                item.isChecked = !item.isChecked
+                mSubscriptions[position] = item
+                mSubscriptionAdapter.notifyItemChanged(position)
+                // 实时保存合并仓
+                val mergedUrls = ArrayList<String>()
+                for (s in mSubscriptions) {
+                    if (s.isChecked) mergedUrls.add(s.url)
+                }
+                val oldUrls: MutableList<String> = Hawk.get(HawkConfig.API_URLS, ArrayList())
+                Hawk.put(HawkConfig.API_URLS, mergedUrls)
+                if (oldUrls != mergedUrls) mergedChanged = true
             }
         }
 
-        mSubscriptionAdapter.setOnItemClickListener { _: BaseQuickAdapter<*, *>?, _: View?, position: Int ->  //选择订阅
-            for (i in mSubscriptions.indices) {
-                val subscription = mSubscriptions[i]
-                if (i == position) {
-                    subscription.setChecked(true)
-                    mSelectedUrl = subscription.url
-                } else {
-                    subscription.setChecked(false)
-                }
-            }
-            //删除/选择只刷新,不触发重新排序
-            mSubscriptionAdapter.notifyDataSetChanged()
+        mSubscriptionAdapter.setOnItemClickListener { _: BaseQuickAdapter<*, *>?, _: View?, position: Int ->
+            // 单击仅设置当前使用仓(API_URL)，不改变勾选（勾选用于多选合并）
+            val subscription = mSubscriptions[position]
+            mSelectedUrl = subscription.url
+            ToastUtils.showShort("已设为当前订阅")
         }
 
         mSubscriptionAdapter.onItemLongClickListener =
@@ -445,6 +455,23 @@ class SubscriptionActivity : BaseActivity() {
                                     IconButton(onClick = { showTip.value = true }) {
                                         Icon(Icons.Outlined.Info, contentDescription = "使用说明")
                                     }
+                                    TextButton(onClick = {
+                                        val mergedUrls = ArrayList<String>()
+                                        for (s in mSubscriptions) {
+                                            if (s.isChecked) mergedUrls.add(s.url)
+                                        }
+                                        val oldUrls: MutableList<String> = Hawk.get(HawkConfig.API_URLS, ArrayList())
+                                        Hawk.put(HawkConfig.API_URLS, mergedUrls)
+                                        if (oldUrls != mergedUrls) {
+                                            mergedChanged = true
+                                            // 立即应用修改，重启首页
+                                            val intent = Intent(this@SubscriptionActivity, MainActivity::class.java)
+                                            intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                                            startActivity(intent)
+                                            overridePendingTransition(R.anim.fade_in, R.anim.fade_out)
+                                        }
+                                        ToastUtils.showShort("已保存合并仓选择")
+                                    }) { Text("保存") }
                                     IconButton(onClick = {
                                         addName.value = "订阅: ${mSubscriptions.size + 1}"
                                         addUrl.value = ""
@@ -642,6 +669,12 @@ class SubscriptionActivity : BaseActivity() {
         // 更新缓存
         Hawk.put(HawkConfig.API_URL, mSelectedUrl)
         Hawk.put<List<Subscription>?>(HawkConfig.SUBSCRIPTIONS, mSubscriptions)
+        // 保存多仓合并所选（使用复选框为合并选择）
+        val mergedUrls = ArrayList<String>()
+        for (s in mSubscriptions) {
+            if (s.isChecked) mergedUrls.add(s.url)
+        }
+        Hawk.put(HawkConfig.API_URLS, mergedUrls)
     }
 
     override fun finish() {

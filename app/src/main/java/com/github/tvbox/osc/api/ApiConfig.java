@@ -40,7 +40,9 @@ import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -129,11 +131,25 @@ public class ApiConfig {
 
     public void loadConfig(boolean useCache, LoadConfigCallback callback, Activity activity) {
         String apiUrl = Hawk.get(HawkConfig.API_URL, "");
+        List<String> apiUrls = Hawk.get(HawkConfig.API_URLS, new ArrayList<>());
+        if (apiUrls != null) {
+            // 去重并清理空串
+            LinkedHashSet<String> set = new LinkedHashSet<>();
+            for (String u : apiUrls) {
+                if (!TextUtils.isEmpty(u)) set.add(u);
+            }
+            apiUrls = new ArrayList<>(set);
+        }
         if (apiUrl.isEmpty()) {
             callback.error("-1");
             return;
         }
         File cache = new File(App.getInstance().getFilesDir().getAbsolutePath() + "/" + MD5.encode(apiUrl));
+        // 如果存在多仓选择，则按顺序拉取并合并
+        if (apiUrls != null && apiUrls.size() > 0) {
+            fetchAndMergeConfigs(apiUrls, useCache, apiUrl, cache, callback);
+            return;
+        }
         if (useCache && cache.exists()) {
             try {
                 parseJson(apiUrl, cache);
@@ -222,6 +238,233 @@ public class ApiConfig {
                         return result;
                     }
                 });
+    }
+
+    private void fetchAndMergeConfigs(List<String> apiUrls, boolean useCache, String mergedCacheKeyUrl, File mergedCacheFile, LoadConfigCallback callback) {
+        List<String> results = new ArrayList<>();
+        List<File> caches = new ArrayList<>();
+        for (String url : apiUrls) {
+            caches.add(new File(App.getInstance().getFilesDir().getAbsolutePath() + "/" + MD5.encode(url)));
+        }
+        fetchNextConfig(0, apiUrls, useCache, mergedCacheKeyUrl, mergedCacheFile, callback, results, caches);
+    }
+
+    private void fetchNextConfig(int idx, List<String> apiUrls, boolean useCache, String mergedCacheKeyUrl, File mergedCacheFile, LoadConfigCallback callback, List<String> results, List<File> caches) {
+        if (idx >= apiUrls.size()) {
+            try {
+                String merged = mergeJsonStrings(apiUrls, results);
+                parseJson(mergedCacheKeyUrl, merged);
+                try {
+                    File cacheDir = mergedCacheFile.getParentFile();
+                    if (!cacheDir.exists()) cacheDir.mkdirs();
+                    if (mergedCacheFile.exists()) mergedCacheFile.delete();
+                    FileOutputStream fos = new FileOutputStream(mergedCacheFile);
+                    fos.write(merged.getBytes("UTF-8"));
+                    fos.flush();
+                    fos.close();
+                } catch (Throwable th) { th.printStackTrace(); }
+                callback.success();
+            } catch (Throwable th) {
+                th.printStackTrace();
+                callback.error("解析配置失败");
+            }
+            return;
+        }
+        String apiUrl = apiUrls.get(idx);
+        String pk = ";pk;";
+        String TempKey = null, configUrl = "";
+        if (apiUrl.contains(pk)) {
+            String[] a = apiUrl.split(pk);
+            TempKey = a[1];
+            if (apiUrl.startsWith("clan")) {
+                configUrl = clanToAddress(a[0]);
+            } else if (apiUrl.startsWith("http")) {
+                configUrl = a[0];
+            } else {
+                configUrl = "http://" + a[0];
+            }
+        } else if (apiUrl.startsWith("clan")) {
+            configUrl = clanToAddress(apiUrl);
+        } else if (!apiUrl.startsWith("http")) {
+            configUrl = "http://" + apiUrl;
+        } else {
+            configUrl = apiUrl;
+        }
+        String configKey = TempKey;
+        File cache = caches.get(idx);
+        if (useCache && cache.exists()) {
+            try {
+                BufferedReader bReader = new BufferedReader(new InputStreamReader(new FileInputStream(cache), "UTF-8"));
+                StringBuilder sb = new StringBuilder();
+                String s = "";
+                while ((s = bReader.readLine()) != null) sb.append(s).append("\n");
+                bReader.close();
+                String json = sb.toString();
+                if (apiUrl.startsWith("clan")) {
+                    json = clanContentFix(clanToAddress(apiUrl), json);
+                }
+                json = fixContentPath(apiUrl, json);
+                results.add(json);
+                fetchNextConfig(idx + 1, apiUrls, useCache, mergedCacheKeyUrl, mergedCacheFile, callback, results, caches);
+                return;
+            } catch (Throwable ignored) {}
+        }
+        OkGo.<String>get(configUrl)
+                .headers("User-Agent", userAgent)
+                .headers("Accept", requestAccept)
+                .execute(new AbsCallback<String>() {
+                    @Override
+                    public void onSuccess(Response<String> response) {
+                        try {
+                            String json = response.body();
+                            // 写各自缓存
+                            try {
+                                File cacheDir = cache.getParentFile();
+                                if (!cacheDir.exists()) cacheDir.mkdirs();
+                                if (cache.exists()) cache.delete();
+                                FileOutputStream fos = new FileOutputStream(cache);
+                                fos.write(json.getBytes("UTF-8"));
+                                fos.flush();
+                                fos.close();
+                            } catch (Throwable th) { th.printStackTrace(); }
+                            results.add(json);
+                            fetchNextConfig(idx + 1, apiUrls, useCache, mergedCacheKeyUrl, mergedCacheFile, callback, results, caches);
+                        } catch (Throwable th) {
+                            callback.error("拉取配置失败");
+                        }
+                    }
+
+                    @Override
+                    public void onError(Response<String> response) {
+                        super.onError(response);
+                        // 尝试缓存
+                        if (cache.exists()) {
+                            try {
+                                BufferedReader bReader = new BufferedReader(new InputStreamReader(new FileInputStream(cache), "UTF-8"));
+                                StringBuilder sb = new StringBuilder();
+                                String s = "";
+                                while ((s = bReader.readLine()) != null) sb.append(s).append("\n");
+                                bReader.close();
+                                String json = sb.toString();
+                                results.add(json);
+                                fetchNextConfig(idx + 1, apiUrls, useCache, mergedCacheKeyUrl, mergedCacheFile, callback, results, caches);
+                                return;
+                            } catch (Throwable ignored) {}
+                        }
+                        callback.error("拉取配置失败\n" + (response.getException() != null ? response.getException().getMessage() : ""));
+                    }
+
+                    @Override
+                    public String convertResponse(okhttp3.Response response) throws Throwable {
+                        String result = "";
+                        if (response.body() == null) {
+                            result = "";
+                        } else {
+                            result = FindResult(response.body().string(), configKey);
+                        }
+                        if (apiUrl.startsWith("clan")) {
+                            result = clanContentFix(clanToAddress(apiUrl), result);
+                        }
+                        result = fixContentPath(apiUrl, result);
+                        return result;
+                    }
+                });
+    }
+
+    private String mergeJsonStrings(List<String> urls, List<String> jsons) {
+        if (jsons == null || jsons.isEmpty()) return "{}";
+        Gson gson = new Gson();
+        JsonObject base = gson.fromJson(jsons.get(0), JsonObject.class);
+        // ensure arrays exist
+        if (!base.has("sites")) base.add("sites", new JsonArray());
+        if (!base.has("parses")) base.add("parses", new JsonArray());
+        if (!base.has("flags")) base.add("flags", new JsonArray());
+        if (!base.has("rules")) base.add("rules", new JsonArray());
+        if (!base.has("ads")) base.add("ads", new JsonArray());
+
+        // collect existing keys
+        HashSet<String> siteKeys = new HashSet<>();
+        for (JsonElement e : base.getAsJsonArray("sites")) {
+            if (e.isJsonObject() && e.getAsJsonObject().has("key")) {
+                siteKeys.add(e.getAsJsonObject().get("key").getAsString());
+            }
+        }
+        HashSet<String> parseNames = new HashSet<>();
+        for (JsonElement e : base.getAsJsonArray("parses")) {
+            if (e.isJsonObject() && e.getAsJsonObject().has("name")) {
+                parseNames.add(e.getAsJsonObject().get("name").getAsString());
+            }
+        }
+        HashSet<String> flags = new HashSet<>();
+        for (JsonElement e : base.getAsJsonArray("flags")) {
+            flags.add(e.getAsString());
+        }
+        HashSet<String> ads = new HashSet<>();
+        for (JsonElement e : base.getAsJsonArray("ads")) {
+            ads.add(e.getAsString());
+        }
+
+        for (int i = 1; i < jsons.size(); i++) {
+            JsonObject obj = gson.fromJson(jsons.get(i), JsonObject.class);
+            // sites
+            if (obj.has("sites")) {
+                for (JsonElement e : obj.getAsJsonArray("sites")) {
+                    if (e.isJsonObject()) {
+                        JsonObject s = e.getAsJsonObject();
+                        if (s.has("key")) {
+                            String k = s.get("key").getAsString();
+                            if (!siteKeys.contains(k)) {
+                                base.getAsJsonArray("sites").add(s);
+                                siteKeys.add(k);
+                            }
+                        }
+                    }
+                }
+            }
+            // parses
+            if (obj.has("parses")) {
+                for (JsonElement e : obj.getAsJsonArray("parses")) {
+                    if (e.isJsonObject()) {
+                        JsonObject p = e.getAsJsonObject();
+                        if (p.has("name")) {
+                            String n = p.get("name").getAsString();
+                            if (!parseNames.contains(n)) {
+                                base.getAsJsonArray("parses").add(p);
+                                parseNames.add(n);
+                            }
+                        }
+                    }
+                }
+            }
+            // flags
+            if (obj.has("flags")) {
+                for (JsonElement e : obj.getAsJsonArray("flags")) {
+                    String f = e.getAsString();
+                    if (!flags.contains(f)) {
+                        base.getAsJsonArray("flags").add(e);
+                        flags.add(f);
+                    }
+                }
+            }
+            // rules
+            if (obj.has("rules")) {
+                for (JsonElement e : obj.getAsJsonArray("rules")) {
+                    base.getAsJsonArray("rules").add(e);
+                }
+            }
+            // ads
+            if (obj.has("ads")) {
+                for (JsonElement e : obj.getAsJsonArray("ads")) {
+                    String a = e.getAsString();
+                    if (!ads.contains(a)) {
+                        base.getAsJsonArray("ads").add(e);
+                        ads.add(a);
+                    }
+                }
+            }
+            // lives: 为安全起见保留 base 的 lives，不做覆盖
+        }
+        return base.toString();
     }
 
 

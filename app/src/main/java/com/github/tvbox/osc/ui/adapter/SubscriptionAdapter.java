@@ -33,6 +33,7 @@ public class SubscriptionAdapter extends BaseQuickAdapter<Subscription, BaseView
         .setVisible(R.id.iv_pushpin,item.isTop());
 
         helper.addOnClickListener(R.id.iv_del);
+        helper.addOnClickListener(R.id.cb);
     }
 
     /**
