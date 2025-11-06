@@ -37,6 +37,11 @@ import com.github.tvbox.osc.util.MD5
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import com.github.tvbox.osc.util.Platform
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.onFocusChanged
 
 class HistoryActivity : BaseActivity() {
     private val tipVisible = mutableStateOf(false)
@@ -69,6 +74,7 @@ class HistoryActivity : BaseActivity() {
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
+                    val tvUi = remember { Platform.useTvUi(this@HistoryActivity) }
                     val container = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
                     val colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                         containerColor = container,
@@ -152,13 +158,13 @@ class HistoryActivity : BaseActivity() {
                             // Help tip moved to Modal Bottom Sheet, opened by the top-right '?' icon
                             LazyVerticalGrid(
                                 modifier = Modifier.fillMaxSize(),
-                                columns = GridCells.Fixed(3),
+                                columns = GridCells.Fixed(if (tvUi) 5 else 3),
                                 contentPadding = PaddingValues(12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 itemsIndexed(histories) { index, vod ->
-                                    HistoryItem(vod,
+                                    HistoryItem(vod, tvUi,
                                         onClick = {
                                             val bundle = Bundle()
                                             bundle.putString("id", vod.id)
@@ -186,10 +192,14 @@ class HistoryActivity : BaseActivity() {
 }
 
 @Composable
-private fun HistoryItem(vod: VodInfo, onClick: () -> Unit, onLongPress: () -> Unit) {
+private fun HistoryItem(vod: VodInfo, tvUi: Boolean, onClick: () -> Unit, onLongPress: () -> Unit) {
+    var focused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(targetValue = if (tvUi && focused) 1.06f else 1f, label = "history-focus-scale")
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .graphicsLayer(scaleX = scale, scaleY = scale)
+            .then(if (tvUi) Modifier.focusable().onFocusChanged { focused = it.isFocused } else Modifier)
             .pointerInput(Unit) {
                 detectTapGestures(
                     onTap = { onClick() },

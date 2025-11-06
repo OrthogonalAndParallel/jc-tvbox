@@ -39,6 +39,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
 import com.github.tvbox.osc.util.MD5
 import com.github.tvbox.osc.picasso.RoundTransformation
+import com.github.tvbox.osc.util.Platform
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.onFocusChanged
 
 class CollectActivity : BaseActivity() {
 
@@ -69,6 +74,7 @@ class CollectActivity : BaseActivity() {
         setContent {
             MaterialTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
+                    val tvUi = remember { Platform.useTvUi(this@CollectActivity) }
                     val container = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
                     val colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                         containerColor = container,
@@ -148,7 +154,7 @@ class CollectActivity : BaseActivity() {
                             // Help tip moved to Modal Bottom Sheet, opened by the top-right '?' icon
                             LazyVerticalGrid(
                                 modifier = Modifier.fillMaxSize(),
-                                columns = GridCells.Fixed(3),
+                                columns = GridCells.Fixed(if (tvUi) 5 else 3),
                                 contentPadding = PaddingValues(12.dp),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -156,6 +162,7 @@ class CollectActivity : BaseActivity() {
                                 itemsIndexed(collects) { index, vod ->
                                     CollectItem(
                                         vod = vod,
+                                        tvUi = tvUi,
                                         onClick = {
                                             if (ApiConfig.get().getSource(vod.sourceKey) != null) {
                                                 val bundle = Bundle()
@@ -192,12 +199,17 @@ class CollectActivity : BaseActivity() {
 @Composable
 private fun CollectItem(
     vod: VodCollect,
+    tvUi: Boolean,
     onClick: () -> Unit,
     onLongPress: () -> Unit
 ) {
+    var focused by remember { mutableStateOf(false) }
+    val scale by animateFloatAsState(targetValue = if (tvUi && focused) 1.06f else 1f, label = "collect-focus-scale")
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .graphicsLayer(scaleX = scale, scaleY = scale)
+            .then(if (tvUi) Modifier.focusable().onFocusChanged { focused = it.isFocused } else Modifier)
             .pointerInput(Unit) {
                 detectTapGestures(onTap = { onClick() }, onLongPress = { onLongPress() })
             }
