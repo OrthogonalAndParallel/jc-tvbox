@@ -26,6 +26,7 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.text.input.ImeAction
@@ -86,6 +87,15 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 
 class FastSearchActivity : BaseActivity(), TextWatcher {
 
@@ -172,6 +182,132 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
     }
     }
 
+    @OptIn(ExperimentalLayoutApi::class)
+    @Composable
+    private fun SearchHistoryAndHotSection(
+        onHistoryClick: (String) -> Unit,
+        onHotClick: (String) -> Unit,
+        onClearHistory: () -> Unit
+    ) {
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            // 历史搜索部分
+            item {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "历史搜索",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        if (historySearchList.isNotEmpty()) {
+                            IconButton(
+                                onClick = onClearHistory,
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription = "清空历史",
+                                    modifier = Modifier.size(20.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                    if (historySearchList.isNotEmpty()) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            historySearchList.forEach { item ->
+                                SearchTag(
+                                    text = item,
+                                    onClick = { onHistoryClick(item) }
+                                )
+                            }
+                        }
+                    } else {
+                        Text(
+                            text = "暂无搜索历史",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
+                }
+            }
+            
+            // 热门搜索部分
+            item {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "热门搜索",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                    if (hotSearchList.isNotEmpty()) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            hotSearchList.forEach { item ->
+                                SearchTag(
+                                    text = item,
+                                    onClick = { onHotClick(item) }
+                                )
+                            }
+                        }
+                    } else {
+                        Text(
+                            text = "加载中...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    @Composable
+    private fun SearchTag(
+        text: String,
+        onClick: () -> Unit
+    ) {
+        Surface(
+            modifier = Modifier
+                .clip(RoundedCornerShape(20.dp))
+                .clickable(onClick = onClick),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(20.dp)
+        ) {
+            Text(
+                text = text,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+
     private lateinit var sourceViewModel : SourceViewModel
     private var searchAdapter = FastSearchAdapter()
     private var searchAdapterFilter = FastSearchAdapter()
@@ -190,6 +326,8 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
     private lateinit var hotFlow: com.zhy.view.flowlayout.TagFlowLayout
     private var pendingInitTabs: Boolean = false // legacy no-op
     private val suggestions = mutableStateListOf<String>()
+    private val historySearchList = mutableStateListOf<String>()
+    private val hotSearchList = mutableStateListOf<String>()
 
     override fun init() {
         sourceViewModel = ViewModelProvider(this).get(SourceViewModel::class.java)
@@ -254,43 +392,22 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
                                 }
                             }
                         } else {
-                            // History + Hot (existing AndroidView block)
-                            AndroidView(
-                                modifier = Modifier.fillMaxWidth().padding(10.dp),
-                                factory = { ctx ->
-                                    LinearLayout(ctx).apply {
-                                        orientation = LinearLayout.VERTICAL
-                                        val header = LinearLayout(ctx).apply {
-                                            orientation = LinearLayout.HORIZONTAL
-                                            val tv = TextView(ctx)
-                                            tv.text = "历史搜索"
-                                            tv.textSize = 15f
-                                            addView(tv)
-                                            val clear = ImageView(ctx)
-                                            clear.setImageResource(R.drawable.ic_clear)
-                                            val lp = LinearLayout.LayoutParams(40.dp.value.toInt(), 40.dp.value.toInt())
-                                            lp.marginStart = 16
-                                            clear.layoutParams = lp
-                                            clear.setOnClickListener { view ->
-                                                Hawk.put(HawkConfig.HISTORY_SEARCH, ArrayList<Any>())
-                                                view.postDelayed({ renderHistory(this) }, 300)
-                                            }
-                                            addView(clear)
-                                        }
-                                        addView(header)
-                                        historyFlow = TagFlowLayout(ctx)
-                                        addView(historyFlow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                                        renderHistory(this)
-                                        val hotTitle = TextView(ctx)
-                                        hotTitle.text = "热门搜索"
-                                        hotTitle.textSize = 15f
-                                        val hotLp = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-                                        hotLp.topMargin = (10.dp.value).toInt()
-                                        addView(hotTitle, hotLp)
-                                        hotFlow = TagFlowLayout(ctx)
-                                        addView(hotFlow, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
-                                        loadHotWords()
-                                    }
+                            // History + Hot using modern Compose components
+                            LaunchedEffect(Unit) {
+                                loadHistoryAndHotData()
+                            }
+                            SearchHistoryAndHotSection(
+                                onHistoryClick = { item ->
+                                    queryState.value = item
+                                    search(item)
+                                },
+                                onHotClick = { item ->
+                                    queryState.value = item
+                                    search(item)
+                                },
+                                onClearHistory = {
+                                    Hawk.put(HawkConfig.HISTORY_SEARCH, ArrayList<Any>())
+                                    historySearchList.clear()
                                 }
                             )
                         }
@@ -605,6 +722,46 @@ class FastSearchActivity : BaseActivity(), TextWatcher {
                             search(hots[position])
                             true
                         }
+                    } catch (th: Throwable) {
+                        th.printStackTrace()
+                    }
+                }
+
+                override fun convertResponse(response: Response): String {
+                    return response.body()!!.string()
+                }
+            })
+    }
+
+    private fun loadHistoryAndHotData() {
+        // Load history search
+        val mSearchHistory: List<String> = Hawk.get(HawkConfig.HISTORY_SEARCH, ArrayList())
+        historySearchList.clear()
+        historySearchList.addAll(mSearchHistory)
+        
+        // Load hot words
+        loadHotWordsForCompose()
+    }
+
+    private fun loadHotWordsForCompose() {
+        OkGo.get<String>("https://node.video.qq.com/x/api/hot_search")
+            .params("channdlId", "0")
+            .params("_", System.currentTimeMillis())
+            .execute(object : AbsCallback<String?>() {
+                override fun onSuccess(response: com.lzy.okgo.model.Response<String?>) {
+                    try {
+                        val hots = ArrayList<String>()
+                        val itemList =
+                            JsonParser.parseString(response.body()).asJsonObject["data"].asJsonObject["mapResult"].asJsonObject["0"].asJsonObject["listInfo"].asJsonArray
+                        for (ele: JsonElement in itemList) {
+                            val obj = ele as JsonObject
+                            hots.add(obj["title"].asString.trim { it <= ' ' }
+                                .replace("<|>|《|》|-".toRegex(), "").split(" ".toRegex())
+                                .dropLastWhile { it.isEmpty() }
+                                .toTypedArray()[0])
+                        }
+                        hotSearchList.clear()
+                        hotSearchList.addAll(hots)
                     } catch (th: Throwable) {
                         th.printStackTrace()
                     }
