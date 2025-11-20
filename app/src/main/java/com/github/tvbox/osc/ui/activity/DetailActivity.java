@@ -121,7 +121,7 @@ public class DetailActivity extends BaseActivity {
     private String preFlag = "";
     private HashMap<String, String> mCheckSources = null;
     BatteryReceiver mBatteryReceiver = new BatteryReceiver();
-    //改为view模式无法自动响应返回键操作,onBackPress时手动dismiss
+    // 改为view模式无法自动响应返回键操作,onBackPress时手动dismiss
     private BasePopupView mAllSeriesRightDialog;
     private BasePopupView mAllSeriesBottomDialog;
     /**
@@ -256,24 +256,33 @@ public class DetailActivity extends BaseActivity {
     }
 
     private void updateActionRow() {
-        if (composeActionView == null) return;
+        if (composeActionView == null)
+            return;
         boolean isCollected = false;
         try {
             if (vodId != null && sourceKey != null) {
                 isCollected = RoomDataManger.isVodCollect(sourceKey, vodId);
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
         DetailComposeKt.setActionRowContent(
                 composeActionView,
                 isCollected,
-                () -> { showCastDialog(); },
-                () -> { toggleCollect(); updateActionRow(); },
-                () -> { use1DMDownload(); }
-        );
+                () -> {
+                    showCastDialog();
+                },
+                () -> {
+                    toggleCollect();
+                    updateActionRow();
+                },
+                () -> {
+                    use1DMDownload();
+                });
     }
 
     private void updateFullCompose() {
-        if (rootComposeView == null) return;
+        if (rootComposeView == null)
+            return;
         String name = (mVideo != null) ? mVideo.name : null;
         String siteName = null;
         try {
@@ -281,21 +290,25 @@ public class DetailActivity extends BaseActivity {
                 String srcName = ApiConfig.get().getSource(mVideo.sourceKey).getName();
                 siteName = (TextUtils.isEmpty(srcName) ? "未知" : srcName);
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
 
-        List<VodInfo.VodSeriesFlag> flags = (vodInfo != null && vodInfo.seriesFlags != null) ? vodInfo.seriesFlags : new ArrayList<>();
+        List<VodInfo.VodSeriesFlag> flags = (vodInfo != null && vodInfo.seriesFlags != null) ? vodInfo.seriesFlags
+                : new ArrayList<>();
         String currentFlagName = (vodInfo != null) ? vodInfo.playFlag : null;
         List<VodInfo.VodSeries> eps = new ArrayList<>();
         if (vodInfo != null && vodInfo.seriesMap != null && currentFlagName != null) {
             List<VodInfo.VodSeries> list = vodInfo.seriesMap.get(currentFlagName);
-            if (list != null) eps = list;
+            if (list != null)
+                eps = list;
         }
         boolean isCollected = false;
         try {
             if (sourceKey != null && vodId != null) {
                 isCollected = RoomDataManger.isVodCollect(sourceKey, vodId);
             }
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
 
         List<ParseBean> pItems = (parseItems != null) ? parseItems : new ArrayList<>();
         int pDefault = defaultParseIndex;
@@ -310,13 +323,26 @@ public class DetailActivity extends BaseActivity {
                 eps,
                 pItems,
                 pDefault,
-                () -> { showCastDialog(); },
-                () -> { toggleCollect(); updateFullCompose(); },
-                () -> { use1DMDownload(); },
-                index -> { chooseFlag(index); },
-                index -> { chooseSeries(index, false); },
-                index -> { quickLineChange(); }
-        );
+                fullWindows,
+                () -> {
+                    showCastDialog();
+                },
+                () -> {
+                    toggleCollect();
+                    updateFullCompose();
+                },
+                () -> {
+                    use1DMDownload();
+                },
+                index -> {
+                    chooseFlag(index);
+                },
+                index -> {
+                    chooseSeries(index, false);
+                },
+                index -> {
+                    quickLineChange();
+                });
         // Ensure player container exists before attaching fragment
         if (showPreview) {
             rootComposeView.post(this::ensurePlayerContainerAndAttach);
@@ -324,9 +350,11 @@ public class DetailActivity extends BaseActivity {
     }
 
     private void ensurePlayerContainerAndAttach() {
-        if (!showPreview) return;
+        if (!showPreview)
+            return;
         View pv = findViewById(R.id.previewPlayer);
-        if (pv == null) return;
+        if (pv == null)
+            return;
         try {
             final String TAG = "PlayFragment";
             androidx.fragment.app.FragmentManager fm = getSupportFragmentManager();
@@ -343,11 +371,13 @@ public class DetailActivity extends BaseActivity {
             }
             playFragment = new PlayFragment();
             fm.beginTransaction().replace(R.id.previewPlayer, playFragment, TAG).commitAllowingStateLoss();
-        } catch (Throwable ignored) {}
+        } catch (Throwable ignored) {
+        }
     }
 
     private void toggleCollect() {
-        if (vodInfo == null || sourceKey == null || vodId == null) return;
+        if (vodInfo == null || sourceKey == null || vodId == null)
+            return;
         boolean isVodCollect = RoomDataManger.isVodCollect(sourceKey, vodId);
         if (!isVodCollect) {
             RoomDataManger.insertVodCollect(sourceKey, vodInfo);
@@ -379,7 +409,8 @@ public class DetailActivity extends BaseActivity {
                 public void onReceive(Context context, Intent intent) {
                     String action = intent.getAction();
                     if (action != null && action.equals(Intent.ACTION_CLOSE_SYSTEM_DIALOGS)) {
-                        openBackgroundPlay = Hawk.get(HawkConfig.BACKGROUND_PLAY_TYPE, 0) == 1 && playFragment.getPlayer() != null && playFragment.getPlayer().isPlaying();
+                        openBackgroundPlay = Hawk.get(HawkConfig.BACKGROUND_PLAY_TYPE, 0) == 1
+                                && playFragment.getPlayer() != null && playFragment.getPlayer().isPlaying();
                     }
                 }
             };
@@ -396,7 +427,7 @@ public class DetailActivity extends BaseActivity {
             isReverse = !isReverse;
             vodInfo.reverse();
             vodInfo.playIndex = (vodInfo.seriesMap.get(vodInfo.playFlag).size() - 1) - vodInfo.playIndex;
-//                    insertVod(sourceKey, vodInfo);
+            // insertVod(sourceKey, vodInfo);
 
             seriesAdapter.notifyDataSetChanged();
         }
@@ -407,19 +438,21 @@ public class DetailActivity extends BaseActivity {
         VodInfo.VodSeries vodSeries = vodInfo.seriesMap.get(vodInfo.playFlag).get(vodInfo.playIndex);
         new XPopup.Builder(this)
                 .maxWidth(ConvertUtils.dp2px(360))
-                .asCustom(new CastListDialog(this, new CastVideo(vodSeries.name
-                        , TextUtils.isEmpty(playFragment.getFinalUrl()) ? vodSeries.url : playFragment.getFinalUrl())))
+                .asCustom(new CastListDialog(this,
+                        new CastVideo(vodSeries.name,
+                                TextUtils.isEmpty(playFragment.getFinalUrl()) ? vodSeries.url
+                                        : playFragment.getFinalUrl())))
                 .show();
     }
 
     public void showAllSeriesDialog() {
         if (fullWindows) {
             mAllSeriesRightDialog = new XPopup.Builder(this)
-                    .isViewMode(true)//隐藏导航栏(手势条)在dialog模式下会闪一下,改为view模式,但需处理onBackPress的隐藏,下方同理
+                    .isViewMode(true)// 隐藏导航栏(手势条)在dialog模式下会闪一下,改为view模式,但需处理onBackPress的隐藏,下方同理
                     .hasNavigationBar(false)
                     .popupHeight(ScreenUtils.getScreenHeight())
                     .popupPosition(PopupPosition.Right)
-                    .enableDrag(false)//禁用拖拽,内部有横向rv
+                    .enableDrag(false)// 禁用拖拽,内部有横向rv
                     .asCustom(new AllVodSeriesRightDialog(this));
             mAllSeriesRightDialog.show();
         } else {
@@ -435,23 +468,23 @@ public class DetailActivity extends BaseActivity {
     }
 
     private void chooseFlag(int position) {
-        //新选中的flag
+        // 新选中的flag
         String newFlag = seriesFlagAdapter.getData().get(position).name;
         if (vodInfo != null && !vodInfo.playFlag.equals(newFlag)) {
-            for (int i = 0; i < vodInfo.seriesFlags.size(); i++) {//遍历flag集合
+            for (int i = 0; i < vodInfo.seriesFlags.size(); i++) {// 遍历flag集合
                 VodInfo.VodSeriesFlag flag = vodInfo.seriesFlags.get(i);
-                if (flag.name.equals(vodInfo.playFlag)) {//取消当前播放的选中状态
+                if (flag.name.equals(vodInfo.playFlag)) {// 取消当前播放的选中状态
                     flag.selected = false;
                     seriesFlagAdapter.notifyItemChanged(i);
                     break;
                 }
             }
-            //新选中的flag
+            // 新选中的flag
             VodInfo.VodSeriesFlag flag = vodInfo.seriesFlags.get(position);
             flag.selected = true;
-            //清除上一个线路集数的选中状态
+            // 清除上一个线路集数的选中状态
             List<VodInfo.VodSeries> currentSeriesList = vodInfo.seriesMap.get(vodInfo.playFlag);
-            if (currentSeriesList.size() > vodInfo.playIndex) {//有效集数
+            if (currentSeriesList.size() > vodInfo.playIndex) {// 有效集数
                 currentSeriesList.get(vodInfo.playIndex).selected = false;
             }
             vodInfo.playFlag = newFlag;
@@ -468,7 +501,7 @@ public class DetailActivity extends BaseActivity {
                 seriesAdapter.getData().get(j).selected = false;
                 seriesAdapter.notifyItemChanged(j);
             }
-            //解决倒叙不刷新
+            // 解决倒叙不刷新
             if (vodInfo.playIndex != position) {
                 seriesAdapter.getData().get(position).selected = true;
                 seriesAdapter.notifyItemChanged(position);
@@ -476,7 +509,7 @@ public class DetailActivity extends BaseActivity {
 
                 reload = true;
             }
-            //解决当前集不刷新的BUG
+            // 解决当前集不刷新的BUG
             if (!preFlag.isEmpty() && !vodInfo.playFlag.equals(preFlag)) {
                 reload = true;
             }
@@ -484,7 +517,7 @@ public class DetailActivity extends BaseActivity {
             seriesAdapter.getData().get(vodInfo.playIndex).selected = true;
             seriesAdapter.notifyItemChanged(vodInfo.playIndex);
 
-            //选集全屏 想选集不全屏的注释下面一行
+            // 选集全屏 想选集不全屏的注释下面一行
             if (!showPreview || reload || reloadWithChangeLine) {
                 jumpToPlay();
             }
@@ -501,12 +534,12 @@ public class DetailActivity extends BaseActivity {
     private void jumpToPlay() {
         if (vodInfo != null && vodInfo.seriesMap.get(vodInfo.playFlag).size() > 0) {
             preFlag = vodInfo.playFlag;
-            //更新播放地址
+            // 更新播放地址
             Bundle bundle = new Bundle();
-            //保存历史
+            // 保存历史
             insertVod(sourceKey, vodInfo);
             bundle.putString("sourceKey", sourceKey);
-//            bundle.putSerializable("VodInfo", vodInfo);
+            // bundle.putSerializable("VodInfo", vodInfo);
             App.getInstance().setVodInfo(vodInfo);
             if (previewVodInfo == null) {
                 try {
@@ -526,7 +559,7 @@ public class DetailActivity extends BaseActivity {
                 previewVodInfo.playFlag = vodInfo.playFlag;
                 previewVodInfo.playIndex = vodInfo.playIndex;
                 previewVodInfo.seriesMap = vodInfo.seriesMap;
-//                    bundle.putSerializable("VodInfo", previewVodInfo);
+                // bundle.putSerializable("VodInfo", previewVodInfo);
                 App.getInstance().setVodInfo(previewVodInfo);
             }
             playFragment.setData(bundle);
@@ -537,7 +570,7 @@ public class DetailActivity extends BaseActivity {
     @SuppressLint("NotifyDataSetChanged")
     void refreshList() {
         int seriesSize = vodInfo.seriesMap.get(vodInfo.playFlag).size();
-        if (seriesSize > 0 && seriesSize <= vodInfo.playIndex) {//当前集数大于新选线路的总集数,设置为最后一集
+        if (seriesSize > 0 && seriesSize <= vodInfo.playIndex) {// 当前集数大于新选线路的总集数,设置为最后一集
             vodInfo.playIndex = seriesSize - 1;
         }
 
@@ -562,7 +595,8 @@ public class DetailActivity extends BaseActivity {
         sourceViewModel.detailResult.observe(this, new Observer<AbsXml>() {
             @Override
             public void onChanged(AbsXml absXml) {
-                if (absXml != null && absXml.movie != null && absXml.movie.videoList != null && absXml.movie.videoList.size() > 0) {
+                if (absXml != null && absXml.movie != null && absXml.movie.videoList != null
+                        && absXml.movie.videoList.size() > 0) {
                     showSuccess();
                     mVideo = absXml.movie.videoList.get(0);
                     vodInfo = new VodInfo();
@@ -571,9 +605,10 @@ public class DetailActivity extends BaseActivity {
 
                     // Title/site bound in Compose
 
-                    if (vodInfo.seriesMap != null && vodInfo.seriesMap.size() > 0) {//线路
+                    if (vodInfo.seriesMap != null && vodInfo.seriesMap.size() > 0) {// 线路
                         View mEmptyPlaylist = findViewById(R.id.mEmptyPlaylist);
-                        if (mEmptyPlaylist != null) mEmptyPlaylist.setVisibility(View.GONE);
+                        if (mEmptyPlaylist != null)
+                            mEmptyPlaylist.setVisibility(View.GONE);
 
                         VodInfo vodInfoRecord = RoomDataManger.getVodInfo(sourceKey, vodId);
                         // 读取历史记录
@@ -614,18 +649,21 @@ public class DetailActivity extends BaseActivity {
                         if (showPreview) {
                             jumpToPlay();
                             View pv = findViewById(R.id.previewPlayer);
-                            if (pv != null) pv.setVisibility(View.VISIBLE);
+                            if (pv != null)
+                                pv.setVisibility(View.VISIBLE);
                             toggleSubtitleTextSize();
                         }
                     } else { // 空布局
                         showEmpty();
                         View pv = findViewById(R.id.previewPlayer);
-                        if (pv != null) pv.setVisibility(View.GONE);
+                        if (pv != null)
+                            pv.setVisibility(View.GONE);
                     }
                 } else {
                     showEmpty();
                     View pv = findViewById(R.id.previewPlayer);
-                    if (pv != null) pv.setVisibility(View.GONE);
+                    if (pv != null)
+                        pv.setVisibility(View.GONE);
                 }
             }
         });
@@ -668,13 +706,13 @@ public class DetailActivity extends BaseActivity {
                     }
                     seriesAdapter.getData().get(index).selected = true;
                     seriesAdapter.notifyItemChanged(index);
-                    //mBinding.mGridView.setSelection(index);
+                    // mBinding.mGridView.setSelection(index);
                     vodInfo.playIndex = index;
-                    //保存历史
+                    // 保存历史
                     insertVod(sourceKey, vodInfo);
                 } else if (event.obj instanceof JSONObject) {
                     vodInfo.playerCfg = ((JSONObject) event.obj).toString();
-                    //保存历史
+                    // 保存历史
                     insertVod(sourceKey, vodInfo);
                 }
 
@@ -722,7 +760,8 @@ public class DetailActivity extends BaseActivity {
         quickSearchData.clear();
         quickSearchWord.addAll(SearchHelper.splitWords(searchTitle));
         // 分词
-        OkGo.<String>get("http://api.pullword.com/get.php?source=" + URLEncoder.encode(searchTitle) + "&param1=0&param2=0&json=1")
+        OkGo.<String>get("http://api.pullword.com/get.php?source=" + URLEncoder.encode(searchTitle)
+                + "&param1=0&param2=0&json=1")
                 .tag("fenci")
                 .execute(new AbsCallback<String>() {
                     @Override
@@ -794,7 +833,8 @@ public class DetailActivity extends BaseActivity {
     }
 
     private void searchData(AbsXml absXml) {
-        if (absXml != null && absXml.movie != null && absXml.movie.videoList != null && absXml.movie.videoList.size() > 0) {
+        if (absXml != null && absXml.movie != null && absXml.movie.videoList != null
+                && absXml.movie.videoList.size() > 0) {
             List<Movie.Video> data = new ArrayList<>();
             for (Movie.Video video : absXml.movie.videoList) {
                 // 去除当前相同的影片
@@ -808,7 +848,7 @@ public class DetailActivity extends BaseActivity {
     }
 
     private void insertVod(String sourceKey, VodInfo vodInfo) {
-        if (Hawk.get(HawkConfig.PRIVATE_BROWSING, false)) {//无痕浏览
+        if (Hawk.get(HawkConfig.PRIVATE_BROWSING, false)) {// 无痕浏览
             return;
         }
         try {
@@ -855,7 +895,7 @@ public class DetailActivity extends BaseActivity {
             mAllSeriesBottomDialog.dismiss();
             return;
         }
-        if (playFragment.hideAllDialogSuccess()) {//fragment有弹窗隐藏并拦截返回
+        if (playFragment.hideAllDialogSuccess()) {// fragment有弹窗隐藏并拦截返回
             return;
         }
         if (fullWindows) {
@@ -877,29 +917,21 @@ public class DetailActivity extends BaseActivity {
 
     // preview
     VodInfo previewVodInfo = null;
-    boolean showPreview = Hawk.get(HawkConfig.SHOW_PREVIEW, true);
-    ; // true 开启 false 关闭
+    boolean showPreview = Hawk.get(HawkConfig.SHOW_PREVIEW, true);; // true 开启 false 关闭
     boolean fullWindows = false;
     ViewGroup.LayoutParams windowsPreview = null;
     ViewGroup.LayoutParams windowsFull = null;
 
     public void toggleFullPreview() {
-        if (windowsPreview == null) {
-            View pv = findViewById(R.id.previewPlayer);
-            if (pv != null) windowsPreview = pv.getLayoutParams();
-        }
-        if (windowsFull == null) {//全屏尺寸
-            windowsFull = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-        }
         fullWindows = !fullWindows;
 
-        //交由fragment处理播放器全屏逻辑
+        // 交由fragment处理播放器全屏逻辑
         playFragment.changedLandscape(fullWindows);
-        //activity处理预览尺寸(全屏/非全屏预览)
-        View pv = findViewById(R.id.previewPlayer);
-        if (pv != null) pv.setLayoutParams(fullWindows ? windowsFull : windowsPreview);
 
-        //全屏下禁用详情页几个按键的焦点 防止上键跑过来
+        // Update Compose to handle layout changes
+        updateFullCompose();
+
+        // 全屏下禁用详情页几个按键的焦点 防止上键跑过来
         // removed: tvSort focusable
         toggleSubtitleTextSize();
     }
@@ -920,7 +952,8 @@ public class DetailActivity extends BaseActivity {
             Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
             intent.setDataAndType(Uri.parse(url), "video/mp4");
             intent.putExtra("title", vodInfo.name + " " + vod.name); // 传入文件保存名
-//            intent.setClassName("idm.internet.download.manager.plus", "idm.internet.download.manager.MainActivity");
+            // intent.setClassName("idm.internet.download.manager.plus",
+            // "idm.internet.download.manager.MainActivity");
             intent.setClassName("idm.internet.download.manager.plus", "idm.internet.download.manager.Downloader");
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 
@@ -940,7 +973,8 @@ public class DetailActivity extends BaseActivity {
 
                     public void onClick(DialogInterface dialog, int which) {
                         // 跳转到下载链接
-                        Intent downloadIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://od.lk/d/MzRfMTg0NTcxMDdf/1DM _v15.6.apk"));
+                        Intent downloadIntent = new Intent(Intent.ACTION_VIEW,
+                                Uri.parse("https://od.lk/d/MzRfMTg0NTcxMDdf/1DM _v15.6.apk"));
                         startActivity(downloadIntent);
                     }
                 });
@@ -975,13 +1009,16 @@ public class DetailActivity extends BaseActivity {
                 ratio = new Rational(16, 9);
             }
             List<RemoteAction> actions = new ArrayList<>();
-            actions.add(generateRemoteAction(android.R.drawable.ic_media_previous, IntentKey.BROADCAST_ACTION_PREV, "Prev", "Play Previous"));
-            actions.add(generateRemoteAction(android.R.drawable.ic_media_play, IntentKey.BROADCAST_ACTION_PLAYPAUSE, "Play", "Play/Pause"));
-            actions.add(generateRemoteAction(android.R.drawable.ic_media_next, IntentKey.BROADCAST_ACTION_NEXT, "Next", "Play Next"));
+            actions.add(generateRemoteAction(android.R.drawable.ic_media_previous, IntentKey.BROADCAST_ACTION_PREV,
+                    "Prev", "Play Previous"));
+            actions.add(generateRemoteAction(android.R.drawable.ic_media_play, IntentKey.BROADCAST_ACTION_PLAYPAUSE,
+                    "Play", "Play/Pause"));
+            actions.add(generateRemoteAction(android.R.drawable.ic_media_next, IntentKey.BROADCAST_ACTION_NEXT, "Next",
+                    "Play Next"));
             PictureInPictureParams params = new PictureInPictureParams.Builder()
                     .setAspectRatio(ratio)
                     .setActions(actions).build();
-            playFragment.getPlayer().postDelayed(() -> {//代码模拟home键时会立即执行,toggleFullPreview中竖屏有切换横屏操作,
+            playFragment.getPlayer().postDelayed(() -> {// 代码模拟home键时会立即执行,toggleFullPreview中竖屏有切换横屏操作,
                 if (!fullWindows) {
                     toggleFullPreview();
                 }
@@ -999,18 +1036,18 @@ public class DetailActivity extends BaseActivity {
 
     @RequiresApi(api = Build.VERSION_CODES.O)
     private RemoteAction generateRemoteAction(int iconResId, int actionCode, String title, String desc) {
-        final PendingIntent intent =
-                PendingIntent.getBroadcast(
-                        DetailActivity.this,
-                        actionCode,
-                        new Intent(IntentKey.BROADCAST_ACTION).putExtra("action", actionCode),
-                        0);
+        final PendingIntent intent = PendingIntent.getBroadcast(
+                DetailActivity.this,
+                actionCode,
+                new Intent(IntentKey.BROADCAST_ACTION).putExtra("action", actionCode),
+                0);
         final Icon icon = Icon.createWithResource(DetailActivity.this, iconResId);
         return (new RemoteAction(icon, title, desc, intent));
     }
 
     /**
      * 事件接收广播(画中画/后台播放点击事件)
+     * 
      * @param isRegister 注册/注销
      */
     private void registerActionReceiver(boolean isRegister) {
@@ -1019,7 +1056,8 @@ public class DetailActivity extends BaseActivity {
 
                 @Override
                 public void onReceive(Context context, Intent intent) {
-                    if (intent == null || !intent.getAction().equals(IntentKey.BROADCAST_ACTION) || playFragment.getController() == null) {
+                    if (intent == null || !intent.getAction().equals(IntentKey.BROADCAST_ACTION)
+                            || playFragment.getController() == null) {
                         return;
                     }
 
@@ -1105,24 +1143,26 @@ public class DetailActivity extends BaseActivity {
         defaultParseIndex = defaultIndex;
         updateFullCompose();
         View pr = findViewById(R.id.parse_root);
-        if (pr != null) pr.setVisibility(show ? View.VISIBLE : View.GONE);
+        if (pr != null)
+            pr.setVisibility(show ? View.VISIBLE : View.GONE);
     }
 
     private void toggleScreenShotListen(boolean open) {
-        if (open){
-            if (screenShotListenManager == null){
+        if (open) {
+            if (screenShotListenManager == null) {
                 screenShotListenManager = ScreenShotListenManager.newInstance(this);
             }
             screenShotListenManager.setListener(imagePath -> {
 
-                if (playFragment.getPlayer().isInPlaybackState())return;
+                if (playFragment.getPlayer().isInPlaybackState())
+                    return;
 
                 new XPopup.Builder(this)
                         .isDarkTheme(Utils.isDarkTheme())
-                        .asCenterList("",new String[]{"跳转阿狸","跳转优汐","跳转夸父","关闭"}, null, (position, text) -> {
+                        .asCenterList("", new String[] { "跳转阿狸", "跳转优汐", "跳转夸父", "关闭" }, null, (position, text) -> {
                             String pkg = "";
                             String cls = "";
-                            switch (position){
+                            switch (position) {
                                 case 0:
                                     pkg = "com.alicloud.databox";
                                     cls = "com.alicloud.databox.launcher.splash.SplashActivity";
@@ -1140,14 +1180,14 @@ public class DetailActivity extends BaseActivity {
                             }
                             try {
                                 startActivity(new Intent().setComponent(new ComponentName(pkg, cls)));
-                            }catch (Exception e){
+                            } catch (Exception e) {
                                 ToastUtils.showShort("未找到应用");
                             }
                         })
                         .show();
             });
             screenShotListenManager.startListen();
-        }else {
+        } else {
             if (screenShotListenManager != null) {
                 screenShotListenManager.stopListen();
             }

@@ -185,6 +185,7 @@ fun DetailScreen(
     episodes: List<VodInfo.VodSeries>,
     parseItems: List<ParseBean>,
     defaultParseIndex: Int,
+    isFullScreen: Boolean,
     onCast: () -> Unit,
     onCollect: () -> Unit,
     onDownload: () -> Unit,
@@ -193,66 +194,73 @@ fun DetailScreen(
     onParseSelect: OnIndexClick
 ) {
     Column(modifier = Modifier.fillMaxSize().padding(bottom = 0.dp)) {
-        // Player container (FrameLayout with fixed height)
+        // Player container (FrameLayout)
         AndroidView(
             factory = { ctx ->
                 android.widget.FrameLayout(ctx).apply {
                     id = com.github.tvbox.osc.R.id.previewPlayer
                     layoutParams = android.widget.FrameLayout.LayoutParams(
                         android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                        (250.dp.value * ctx.resources.displayMetrics.density).toInt()
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT
                     )
                 }
             },
-            modifier = Modifier.fillMaxWidth().height(250.dp)
+            modifier = if (isFullScreen) {
+                Modifier.fillMaxSize().background(Color.Black)
+            } else {
+                Modifier.fillMaxWidth().height(250.dp)
+            }
         )
-        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
-            // Title
-            if (!name.isNullOrEmpty()) {
-                Text(
-                    text = name,
-                    style = MaterialTheme.typography.titleLarge,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 20.dp)
+        
+        if (!isFullScreen) {
+            Column(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
+                // Title
+                if (!name.isNullOrEmpty()) {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.titleLarge,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 20.dp)
+                    )
+                }
+                // Site row
+                if (!siteName.isNullOrEmpty()) {
+                    Text(
+                        text = "来源：$siteName",
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(top = 12.dp)
+                    )
+                }
+
+                // Actions
+                ActionRow(
+                    isCollected = isCollected,
+                    onCast = onCast,
+                    onCollect = onCollect,
+                    onDownload = onDownload
+                )
+
+                // Divider
+                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+                // Parse row
+                if (parseItems.isNotEmpty()) {
+                    ParseRow(items = parseItems, defaultIndex = defaultParseIndex, onSelect = { idx -> onParseSelect.onClick(idx) })
+                }
+
+                // Line header spacer
+                Spacer(Modifier.height(8.dp))
+
+                // Lists (flags + episodes)
+                DetailLists(
+                    flags = flags,
+                    currentFlagName = currentFlagName,
+                    episodes = episodes,
+                    onFlagClick = onFlagClick,
+                    onEpisodeClick = onEpisodeClick
                 )
             }
-            // Site row
-            if (!siteName.isNullOrEmpty()) {
-                Text(
-                    text = "来源：$siteName",
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(top = 12.dp)
-                )
-            }
-
-            // Actions
-            ActionRow(
-                isCollected = isCollected,
-                onCast = onCast,
-                onCollect = onCollect,
-                onDownload = onDownload
-            )
-
-            // Divider
-            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
-
-            // Parse row
-            if (parseItems.isNotEmpty()) {
-                ParseRow(items = parseItems, defaultIndex = defaultParseIndex, onSelect = { idx -> onParseSelect.onClick(idx) })
-            }
-
-            // Line header spacer
-            Spacer(Modifier.height(8.dp))
-
-            // Lists (flags + episodes)
-            DetailLists(
-                flags = flags,
-                currentFlagName = currentFlagName,
-                episodes = episodes,
-                onFlagClick = onFlagClick,
-                onEpisodeClick = onEpisodeClick
-            )
         }
     }
 }
@@ -267,6 +275,7 @@ fun setFullDetailContent(
     episodes: List<VodInfo.VodSeries>,
     parseItems: List<ParseBean>,
     defaultParseIndex: Int,
+    isFullScreen: Boolean,
     onCast: Runnable,
     onCollect: Runnable,
     onDownload: Runnable,
@@ -285,6 +294,7 @@ fun setFullDetailContent(
                 episodes = episodes,
                 parseItems = parseItems,
                 defaultParseIndex = defaultParseIndex,
+                isFullScreen = isFullScreen,
                 onCast = { onCast.run() },
                 onCollect = { onCollect.run() },
                 onDownload = { onDownload.run() },
