@@ -91,6 +91,11 @@ import com.owen.tvrecyclerview.widget.V7GridLayoutManager
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.horizontalDrag
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.PointerInputChange
 
 class HomeComposeFragment : Fragment() {
 
@@ -243,20 +248,60 @@ class HomeComposeFragment : Fragment() {
                                 }
                             }
                         }
-                        LazyVerticalGrid(
-                            modifier = Modifier.fillMaxSize(),
-                            state = gridState,
-                            columns = GridCells.Fixed(if (tvUi) 5 else 3),
-                            contentPadding = PaddingValues(12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .pointerInput(Unit) {
+                                    awaitPointerEventScope {
+                                        while (true) {
+                                            val event = awaitFirstDown(pass = PointerEventPass.Initial)
+                                            val startX = event.position.x
+                                            var dragAmount = 0f
+                                            var isHorizontalDrag = false
+                                            
+                                            horizontalDrag(event.id) { change ->
+                                                dragAmount = change.position.x - startX
+                                                isHorizontalDrag = true
+                                                change.consume()
+                                            }
+                                            
+                                            if (isHorizontalDrag && kotlin.math.abs(dragAmount) > 50) {
+                                                if (dragAmount > 50) {
+                                                    // Swiped right
+                                                    if (currentTab > 0) {
+                                                        currentTab--
+                                                        triggerLoadIfNeeded(currentTab, lists, pages, maxPages, isLoading)
+                                                    }
+                                                } else if (dragAmount < -50) {
+                                                    // Swiped left
+                                                    if (currentTab < tabTitles.size - 1) {
+                                                        currentTab++
+                                                        triggerLoadIfNeeded(currentTab, lists, pages, maxPages, isLoading)
+                                                    } else if (currentTab == tabTitles.size - 1) {
+                                                        // On last tab, swiping left switches to "My" page
+                                                        (activity as? MainActivity)?.viewPager?.setCurrentItem(1, false)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                         ) {
-                            itemsIndexed(videos) { _, video ->
-                                VideoCard(video = video, tvUi = tvUi, onClick = {
-                                    val intent = Intent(requireContext(), FastSearchActivity::class.java)
-                                    intent.putExtra("title", video.name)
-                                    startActivity(intent)
-                                })
+                            LazyVerticalGrid(
+                                modifier = Modifier.fillMaxSize(),
+                                state = gridState,
+                                columns = GridCells.Fixed(if (tvUi) 5 else 3),
+                                contentPadding = PaddingValues(12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                itemsIndexed(videos) { _, video ->
+                                    VideoCard(video = video, tvUi = tvUi, onClick = {
+                                        val intent = Intent(requireContext(), FastSearchActivity::class.java)
+                                        intent.putExtra("title", video.name)
+                                        startActivity(intent)
+                                    })
+                                }
                             }
                         }
                     }

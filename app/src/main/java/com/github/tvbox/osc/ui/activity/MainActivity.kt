@@ -54,7 +54,7 @@ class MainActivity : BaseActivity() {
 
     var useCacheConfig = false
 
-    private var viewPager: ViewPager2? = null
+    var viewPager: ViewPager2? = null
 
     override fun init() {
         useCacheConfig = intent.extras?.getBoolean(IntentKey.CACHE_CONFIG_CHANGED, false)?:false
