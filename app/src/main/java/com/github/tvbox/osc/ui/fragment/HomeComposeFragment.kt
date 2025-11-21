@@ -252,27 +252,20 @@ class HomeComposeFragment : Fragment() {
                             modifier = Modifier
                                 .fillMaxSize()
                                 .pointerInput(Unit) {
-                                    awaitPointerEventScope {
-                                        while (true) {
-                                            val event = awaitFirstDown(pass = PointerEventPass.Initial)
-                                            val startX = event.position.x
-                                            var dragAmount = 0f
-                                            var isHorizontalDrag = false
-                                            
-                                            horizontalDrag(event.id) { change ->
-                                                dragAmount = change.position.x - startX
-                                                isHorizontalDrag = true
-                                                change.consume()
-                                            }
-                                            
-                                            if (isHorizontalDrag && kotlin.math.abs(dragAmount) > 50) {
-                                                if (dragAmount > 50) {
+                                    var totalDrag = 0f
+                                    detectHorizontalDragGestures(
+                                        onDragStart = {
+                                            totalDrag = 0f
+                                        },
+                                        onDragEnd = {
+                                            if (kotlin.math.abs(totalDrag) > 50) {
+                                                if (totalDrag > 50) {
                                                     // Swiped right
                                                     if (currentTab > 0) {
                                                         currentTab--
                                                         triggerLoadIfNeeded(currentTab, lists, pages, maxPages, isLoading)
                                                     }
-                                                } else if (dragAmount < -50) {
+                                                } else if (totalDrag < -50) {
                                                     // Swiped left
                                                     if (currentTab < tabTitles.size - 1) {
                                                         currentTab++
@@ -283,8 +276,12 @@ class HomeComposeFragment : Fragment() {
                                                     }
                                                 }
                                             }
+                                        },
+                                        onHorizontalDrag = { change, dragAmount ->
+                                            totalDrag += dragAmount
+                                            change.consume()
                                         }
-                                    }
+                                    )
                                 }
                         ) {
                             LazyVerticalGrid(
