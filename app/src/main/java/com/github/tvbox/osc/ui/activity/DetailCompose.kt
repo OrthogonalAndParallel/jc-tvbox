@@ -29,6 +29,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import com.github.tvbox.osc.bean.VodInfo
 import com.github.tvbox.osc.bean.ParseBean
 
@@ -111,11 +118,7 @@ fun ParseRow(
     onSelect: (Int) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = "解析",
-            modifier = Modifier.padding(start = 14.dp, top = 8.dp),
-            style = MaterialTheme.typography.titleMedium
-        )
+
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
@@ -286,22 +289,46 @@ fun DetailInfoContent(
     onEpisodeClick: OnIndexClick,
     onParseSelect: OnIndexClick
 ) {
-    if (!name.isNullOrEmpty()) {
-        Text(
-            text = name,
-            style = MaterialTheme.typography.titleLarge,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 20.dp)
-        )
-    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 20.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (!name.isNullOrEmpty()) {
+            Text(
+                text = name,
+                style = MaterialTheme.typography.titleLarge,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+        } else {
+            Spacer(modifier = Modifier.weight(1f))
+        }
 
-    ActionRow(
-        isCollected = isCollected,
-        onCast = onCast,
-        onCollect = onCollect,
-        onDownload = onDownload
-    )
+        IconButton(onClick = onCast) {
+            Icon(
+                imageVector = Icons.Default.Cast,
+                contentDescription = "投屏",
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        IconButton(onClick = onCollect) {
+            Icon(
+                imageVector = if (isCollected) Icons.Default.Star else Icons.Default.StarBorder,
+                contentDescription = "收藏",
+                tint = if (isCollected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+            )
+        }
+        IconButton(onClick = onDownload) {
+            Icon(
+                imageVector = Icons.Default.Download,
+                contentDescription = "下载",
+                tint = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
 
     Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
 
