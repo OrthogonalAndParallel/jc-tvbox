@@ -12,6 +12,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.content.res.Configuration;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
 import android.os.Build;
@@ -24,6 +25,7 @@ import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.lifecycle.Observer;
@@ -352,26 +354,63 @@ public class DetailActivity extends BaseActivity {
     private void ensurePlayerContainerAndAttach() {
         if (!showPreview)
             return;
-        View pv = findViewById(R.id.previewPlayer);
+        ViewGroup pv = findViewById(R.id.previewPlayer);
         if (pv == null)
             return;
         try {
             final String TAG = "PlayFragment";
             androidx.fragment.app.FragmentManager fm = getSupportFragmentManager();
+
+            // Check if we already hold a reference
+            if (playFragment != null) {
+                View fragmentView = playFragment.getView();
+                if (fragmentView != null) {
+                    if (fragmentView.getParent() != pv) {
+                        ViewGroup parent = (ViewGroup) fragmentView.getParent();
+                        if (parent != null) {
+                            parent.removeView(fragmentView);
+                        }
+                        pv.addView(fragmentView);
+                    }
+                    return;
+                }
+            }
+
             androidx.fragment.app.Fragment byId = fm.findFragmentById(R.id.previewPlayer);
             if (byId instanceof PlayFragment) {
                 playFragment = (PlayFragment) byId;
+                View fragmentView = playFragment.getView();
+                if (fragmentView != null && fragmentView.getParent() != pv) {
+                    ViewGroup parent = (ViewGroup) fragmentView.getParent();
+                    if (parent != null) {
+                        parent.removeView(fragmentView);
+                    }
+                    pv.addView(fragmentView);
+                } else if (fragmentView == null) {
+                    fm.beginTransaction().replace(R.id.previewPlayer, playFragment, TAG).commitAllowingStateLoss();
+                }
                 return;
             }
             androidx.fragment.app.Fragment byTag = fm.findFragmentByTag(TAG);
             if (byTag instanceof PlayFragment) {
                 playFragment = (PlayFragment) byTag;
-                fm.beginTransaction().replace(R.id.previewPlayer, playFragment, TAG).commitAllowingStateLoss();
+                View fragmentView = playFragment.getView();
+                if (fragmentView != null) {
+                    if (fragmentView.getParent() != pv) {
+                        ViewGroup parent = (ViewGroup) fragmentView.getParent();
+                        if (parent != null)
+                            parent.removeView(fragmentView);
+                        pv.addView(fragmentView);
+                    }
+                } else {
+                    fm.beginTransaction().replace(R.id.previewPlayer, playFragment, TAG).commitAllowingStateLoss();
+                }
                 return;
             }
             playFragment = new PlayFragment();
             fm.beginTransaction().replace(R.id.previewPlayer, playFragment, TAG).commitAllowingStateLoss();
         } catch (Throwable ignored) {
+            ignored.printStackTrace();
         }
     }
 
@@ -390,6 +429,13 @@ public class DetailActivity extends BaseActivity {
 
     private void updateComposeLists() {
         // Delegate to full compose updater
+        updateFullCompose();
+    }
+
+    @Override
+    public void onConfigurationChanged(@NonNull Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        // Do not force fullWindows on landscape, let Compose handle layout
         updateFullCompose();
     }
 

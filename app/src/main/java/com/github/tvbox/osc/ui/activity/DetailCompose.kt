@@ -1,10 +1,14 @@
 package com.github.tvbox.osc.ui.activity
 
 import android.content.Context
+import android.content.res.Configuration
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -193,8 +197,10 @@ fun DetailScreen(
     onEpisodeClick: OnIndexClick,
     onParseSelect: OnIndexClick
 ) {
-    Column(modifier = Modifier.fillMaxSize().padding(bottom = 0.dp)) {
-        // Player container (FrameLayout)
+    val configuration = LocalConfiguration.current
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    if (isFullScreen) {
         AndroidView(
             factory = { ctx ->
                 android.widget.FrameLayout(ctx).apply {
@@ -205,58 +211,113 @@ fun DetailScreen(
                     )
                 }
             },
-            modifier = if (isFullScreen) {
-                Modifier.fillMaxSize().background(Color.Black)
-            } else {
-                Modifier.fillMaxWidth().height(250.dp)
-            }
+            modifier = Modifier.fillMaxSize().background(Color.Black)
         )
-        
-        if (!isFullScreen) {
-            Column(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
-                // Title
-                if (!name.isNullOrEmpty()) {
-                    Text(
-                        text = name,
-                        style = MaterialTheme.typography.titleLarge,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 20.dp)
+    } else {
+        if (isLandscape) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                Box(modifier = Modifier.weight(1f).fillMaxHeight().background(Color.Black)) {
+                    AndroidView(
+                        factory = { ctx ->
+                            android.widget.FrameLayout(ctx).apply {
+                                id = com.github.tvbox.osc.R.id.previewPlayer
+                                layoutParams = android.widget.FrameLayout.LayoutParams(
+                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                    android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
-                // Site row
-
-
-                // Actions
-                ActionRow(
-                    isCollected = isCollected,
-                    onCast = onCast,
-                    onCollect = onCollect,
-                    onDownload = onDownload
-                )
-
-                // Divider
-                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
-
-                // Parse row
-                if (parseItems.isNotEmpty()) {
-                    ParseRow(items = parseItems, defaultIndex = defaultParseIndex, onSelect = { idx -> onParseSelect.onClick(idx) })
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 14.dp)
+                ) {
+                    DetailInfoContent(
+                        name, isCollected, flags, currentFlagName, episodes,
+                        parseItems, defaultParseIndex, onCast, onCollect, onDownload,
+                        onFlagClick, onEpisodeClick, onParseSelect
+                    )
                 }
-
-                // Line header spacer
-                Spacer(Modifier.height(8.dp))
-
-                // Lists (flags + episodes)
-                DetailLists(
-                    flags = flags,
-                    currentFlagName = currentFlagName,
-                    episodes = episodes,
-                    onFlagClick = onFlagClick,
-                    onEpisodeClick = onEpisodeClick
+            }
+        } else {
+            Column(modifier = Modifier.fillMaxSize()) {
+                AndroidView(
+                    factory = { ctx ->
+                        android.widget.FrameLayout(ctx).apply {
+                            id = com.github.tvbox.osc.R.id.previewPlayer
+                            layoutParams = android.widget.FrameLayout.LayoutParams(
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(250.dp)
                 )
+                Column(modifier = Modifier.fillMaxSize().padding(horizontal = 14.dp)) {
+                    DetailInfoContent(
+                        name, isCollected, flags, currentFlagName, episodes,
+                        parseItems, defaultParseIndex, onCast, onCollect, onDownload,
+                        onFlagClick, onEpisodeClick, onParseSelect
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+fun DetailInfoContent(
+    name: String?,
+    isCollected: Boolean,
+    flags: List<VodInfo.VodSeriesFlag>,
+    currentFlagName: String?,
+    episodes: List<VodInfo.VodSeries>,
+    parseItems: List<ParseBean>,
+    defaultParseIndex: Int,
+    onCast: () -> Unit,
+    onCollect: () -> Unit,
+    onDownload: () -> Unit,
+    onFlagClick: OnIndexClick,
+    onEpisodeClick: OnIndexClick,
+    onParseSelect: OnIndexClick
+) {
+    if (!name.isNullOrEmpty()) {
+        Text(
+            text = name,
+            style = MaterialTheme.typography.titleLarge,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(top = 20.dp)
+        )
+    }
+
+    ActionRow(
+        isCollected = isCollected,
+        onCast = onCast,
+        onCollect = onCollect,
+        onDownload = onDownload
+    )
+
+    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+    if (parseItems.isNotEmpty()) {
+        ParseRow(items = parseItems, defaultIndex = defaultParseIndex, onSelect = { idx -> onParseSelect.onClick(idx) })
+    }
+
+    Spacer(Modifier.height(8.dp))
+
+    DetailLists(
+        flags = flags,
+        currentFlagName = currentFlagName,
+        episodes = episodes,
+        onFlagClick = onFlagClick,
+        onEpisodeClick = onEpisodeClick
+    )
 }
 
 fun setFullDetailContent(
