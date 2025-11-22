@@ -225,13 +225,7 @@ fun DetailScreen(
                     )
                 }
                 // Site row
-                if (!siteName.isNullOrEmpty()) {
-                    Text(
-                        text = "来源：$siteName",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(top = 12.dp)
-                    )
-                }
+
 
                 // Actions
                 ActionRow(
