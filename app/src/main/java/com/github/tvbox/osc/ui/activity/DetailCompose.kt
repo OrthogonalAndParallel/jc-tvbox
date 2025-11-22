@@ -118,31 +118,30 @@ fun ParseRow(
     onSelect: (Int) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
-
         LazyRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            contentPadding = PaddingValues(horizontal = 10.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(horizontal = 0.dp)
         ) {
             itemsIndexed(items) { idx, bean ->
                 val selected = idx == defaultIndex || bean.isDefault
                 Box(
                     modifier = Modifier
-                        .height(36.dp)
-                        .padding(vertical = 2.dp)
+                        .height(32.dp)
                         .background(
-                            color = if (selected) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent,
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp)
+                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            shape = androidx.compose.foundation.shape.CircleShape
                         )
                         .clickable { onSelect(idx) }
-                        .padding(horizontal = 12.dp),
+                        .padding(horizontal = 16.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = bean.name ?: "",
-                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.bodyMedium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -415,31 +414,31 @@ private fun DetailLists(
     onFlagClick: OnIndexClick,
     onEpisodeClick: OnIndexClick
 ) {
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp)) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         // Flags
         if (flags.isNotEmpty()) {
             LazyRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(vertical = 6.dp)
             ) {
                 itemsIndexed(flags) { index, flag ->
                     val selected = flag.name == currentFlagName || flag.selected
                     Box(
                         modifier = Modifier
+                            .height(32.dp)
                             .background(
-                                color = if (selected) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent,
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
+                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                                shape = androidx.compose.foundation.shape.CircleShape
                             )
                             .clickable { onFlagClick.onClick(index) }
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                            .padding(horizontal = 16.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = flag.name ?: "",
-                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                            fontSize = 14.sp,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.bodyMedium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -447,36 +446,75 @@ private fun DetailLists(
                 }
             }
         }
-        // Episodes (horizontal list to avoid vertical scroll inside parent ScrollView)
+        
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Episodes (Vertical Grid)
         if (episodes.isNotEmpty()) {
-            LazyRow(
+            VerticalGrid(
+                columns = 4, // Fixed column count or adaptive
+                itemCount = episodes.size,
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(vertical = 8.dp, horizontal = 0.dp)
-            ) {
-                itemsIndexed(episodes) { index, ep ->
-                    val selected = ep.selected
-                    Box(
-                        modifier = Modifier
-                            .height(40.dp)
-                            .widthIn(min = 96.dp)
-                            .background(
-                                color = if (selected) MaterialTheme.colorScheme.surfaceVariant else Color.Transparent,
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)
-                            )
-                            .clickable { onEpisodeClick.onClick(index) },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = ep.name ?: "",
-                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                            fontSize = 13.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) { index ->
+                val episode = episodes[index]
+                val selected = episode.selected
+                Box(
+                    modifier = Modifier
+                        .height(36.dp)
+                        .background(
+                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                            shape = androidx.compose.foundation.shape.CircleShape
                         )
+                        .clickable { onEpisodeClick.onClick(index) }
+                        .padding(horizontal = 4.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = episode.name ?: "",
+                        color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun VerticalGrid(
+    columns: Int,
+    itemCount: Int,
+    modifier: Modifier = Modifier,
+    verticalArrangement: Arrangement.Vertical = Arrangement.Top,
+    horizontalArrangement: Arrangement.Horizontal = Arrangement.Start,
+    content: @Composable (Int) -> Unit
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = verticalArrangement
+    ) {
+        var rows = (itemCount + columns - 1) / columns
+        for (i in 0 until rows) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = horizontalArrangement
+            ) {
+                for (j in 0 until columns) {
+                    val index = i * columns + j
+                    if (index < itemCount) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            content(index)
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
         }
     }
 }
+
