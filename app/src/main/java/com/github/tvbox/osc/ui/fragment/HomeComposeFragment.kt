@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.CollectionsBookmark
 import androidx.compose.material3.*
@@ -196,9 +197,9 @@ class HomeComposeFragment : Fragment() {
                 TopBar(
                     title = homeName,
                     onTitleClick = {
-                        if (dataInitOk && jarInitOk) showSiteSwitch() else ToastUtils.showShort("数据源未加载，长按刷新或切换订阅")
+                        if (dataInitOk && jarInitOk) showSiteSwitch() else ToastUtils.showShort("数据源未加载，点击刷新或切换订阅")
                     },
-                    onTitleLongClick = { refreshHomeSources() },
+                    onRefresh = { refreshHomeSources() },
                     onSearch = { startActivity(Intent(requireContext(), FastSearchActivity::class.java)) },
                     onHistory = { startActivity(Intent(requireContext(), HistoryActivity::class.java)) },
                     onCollect = { startActivity(Intent(requireContext(), CollectActivity::class.java)) }
@@ -409,7 +410,7 @@ class HomeComposeFragment : Fragment() {
     private fun TopBar(
         title: String,
         onTitleClick: () -> Unit,
-        onTitleLongClick: () -> Unit,
+        onRefresh: () -> Unit,
         onSearch: () -> Unit,
         onHistory: () -> Unit,
         onCollect: () -> Unit,
@@ -466,12 +467,7 @@ class HomeComposeFragment : Fragment() {
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onLongPress = { onTitleLongClick() },
-                                onTap = { onTitleClick() }
-                            )
-                        },
+                        .clickable { onTitleClick() },
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
                 ) {
                     Text(
@@ -484,6 +480,7 @@ class HomeComposeFragment : Fragment() {
                 }
             },
             actions = {
+                IconButton(onClick = onRefresh) { Icon(Icons.Outlined.Refresh, contentDescription = "刷新") }
                 IconButton(onClick = onSearch) { Icon(Icons.Outlined.Search, contentDescription = "搜索") }
                 IconButton(onClick = onHistory) { Icon(Icons.Outlined.History, contentDescription = "历史") }
                 IconButton(onClick = onCollect) { Icon(Icons.Outlined.CollectionsBookmark, contentDescription = "收藏") }
