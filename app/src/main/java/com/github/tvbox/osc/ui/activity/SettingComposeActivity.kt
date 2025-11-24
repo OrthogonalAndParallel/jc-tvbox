@@ -69,6 +69,14 @@ class SettingComposeActivity : BaseActivity() {
                         onTogglePrivateBrowsing = { newValue -> Hawk.put(HawkConfig.PRIVATE_BROWSING, newValue) },
                         onToggleVideoPurify = { newValue -> Hawk.put(HawkConfig.VIDEO_PURIFY, newValue) },
                         onToggleIjkCache = { newValue -> Hawk.put(HawkConfig.IJK_CACHE_PLAY, newValue) },
+                        onClickHomeRec = {
+                            val defaultPos = Hawk.get(HawkConfig.HOME_REC, 0)
+                            val options = listOf(0, 1, 2)
+                            val names = options.map { getHomeRecName(it) }
+                            selectConfig.value = SelectConfig("主页内容", names, defaultPos) { pos ->
+                                Hawk.put(HawkConfig.HOME_REC, pos)
+                            }
+                        },
                         onClickLiveApi = {
                             showLive.value = true
                         },
@@ -442,6 +450,7 @@ data class SettingHandlers(
     val onTogglePrivateBrowsing: (Boolean) -> Unit,
     val onToggleVideoPurify: (Boolean) -> Unit,
     val onToggleIjkCache: (Boolean) -> Unit,
+    val onClickHomeRec: () -> Unit,
     val onClickLiveApi: () -> Unit,
     val onClickBackgroundPlayType: (String) -> Unit,
     val onClickDns: () -> Unit,
@@ -504,7 +513,7 @@ private fun SettingScreen(
                 .padding(horizontal = 20.dp, vertical = 20.dp)
         ) {
             SettingsCard {
-                RowItem(label = "主页内容", value = state.homeRec.value) { /* future: selection */ }
+                RowItem(label = "主页内容", value = state.homeRec.value, onClick = handlers.onClickHomeRec)
                 DividerLine()
                 RowItem(label = "主题颜色", value = state.theme.value, onClick = handlers.onClickTheme)
                 DividerLine()

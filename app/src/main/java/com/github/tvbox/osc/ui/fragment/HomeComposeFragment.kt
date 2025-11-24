@@ -163,6 +163,8 @@ class HomeComposeFragment : Fragment() {
             initViewModel(
                 onTabsReady = { titles ->
                     tabTitles = titles
+                    currentTab = 0
+                    triggerLoadIfNeeded(0, lists, pages, maxPages, isLoading)
                 },
                 onHomeName = { name ->
                     homeName = name
@@ -170,10 +172,8 @@ class HomeComposeFragment : Fragment() {
             )
             initData(
                 onTabsChange = { titles ->
-                    tabTitles = titles
-                    currentTab = 0
-                    // warm start first tab
-                    triggerLoadIfNeeded(0, lists, pages, maxPages, isLoading)
+                    // This callback is not actually invoked by initData's success path,
+                    // but we keep the signature. The logic is moved to onTabsReady.
                 },
                 onError = { msg ->
                     errorMsg = msg
