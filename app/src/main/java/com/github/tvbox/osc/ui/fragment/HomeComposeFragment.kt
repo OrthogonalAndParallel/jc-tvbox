@@ -108,7 +108,7 @@ class HomeComposeFragment : Fragment() {
     private var dataInitOk = false
     private var jarInitOk = false
 
-    var errorTipDialog: TipDialog? = null
+
     var onlyConfigChanged = false
 
     // private var viewPager: ViewPager2? = null // no longer used in full Compose
@@ -150,6 +150,7 @@ class HomeComposeFragment : Fragment() {
         var currentTab by rememberSaveable { mutableStateOf(0) }
         var tabTitles by remember { mutableStateOf(listOf<String>()) }
         var homeName by remember { mutableStateOf(getString(R.string.app_name)) }
+        var errorMsg by remember { mutableStateOf<String?>(null) }
 
         // Compose state for grids per tab
         val lists = remember { mutableStateMapOf<Int, MutableList<Movie.Video>>() }
@@ -167,12 +168,17 @@ class HomeComposeFragment : Fragment() {
                     homeName = name
                 }
             )
-            initData(onTabsChange = { titles ->
-                tabTitles = titles
-                currentTab = 0
-                // warm start first tab
-                triggerLoadIfNeeded(0, lists, pages, maxPages, isLoading)
-            })
+            initData(
+                onTabsChange = { titles ->
+                    tabTitles = titles
+                    currentTab = 0
+                    // warm start first tab
+                    triggerLoadIfNeeded(0, lists, pages, maxPages, isLoading)
+                },
+                onError = { msg ->
+                    errorMsg = msg
+                }
+            )
         }
 
         // Observe listResult to update current requesting tab's list
@@ -310,6 +316,69 @@ class HomeComposeFragment : Fragment() {
                 }
             }
         }
+
+        if (errorMsg != null) {
+            ErrorDialog(
+                text = errorMsg!!,
+                onDismiss = {
+                    dataInitOk = true
+                    jarInitOk = true
+                    errorMsg = null
+                    initData(
+                        onTabsChange = { titles ->
+                            tabTitles = titles
+                            currentTab = 0
+                            triggerLoadIfNeeded(0, lists, pages, maxPages, isLoading)
+                        },
+                        onError = { msg -> errorMsg = msg }
+                    )
+                },
+                onRetry = {
+                    errorMsg = null
+                    initData(
+                        onTabsChange = { titles ->
+                            tabTitles = titles
+                            currentTab = 0
+                            triggerLoadIfNeeded(0, lists, pages, maxPages, isLoading)
+                        },
+                        onError = { msg -> errorMsg = msg }
+                    )
+                },
+                onChangeSource = {
+                    errorMsg = null
+                    startActivity(Intent(requireContext(), SubscriptionActivity::class.java))
+                }
+            )
+        }
+    }
+
+    @Composable
+    private fun ErrorDialog(
+        text: String,
+        onDismiss: () -> Unit,
+        onRetry: () -> Unit,
+        onChangeSource: () -> Unit
+    ) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("提示") },
+            text = { Text(text) },
+            confirmButton = {
+                TextButton(onClick = onRetry) {
+                    Text("重试")
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = onChangeSource) {
+                        Text("切换订阅")
+                    }
+                    TextButton(onClick = onDismiss) {
+                        Text("取消")
+                    }
+                }
+            }
+        )
     }
 
     @Composable
@@ -503,7 +572,7 @@ class HomeComposeFragment : Fragment() {
         }
     }
 
-    private fun initData(onTabsChange: (List<String>) -> Unit) {
+    private fun initData(onTabsChange: (List<String>) -> Unit, onError: (String) -> Unit) {
         val mainActivity = activity as? MainActivity
         onlyConfigChanged = mainActivity?.useCacheConfig ?: false
 
@@ -512,10 +581,10 @@ class HomeComposeFragment : Fragment() {
                 sourceViewModel?.getSort(ApiConfig.get().homeSourceBean.key)
             }
             dataInitOk && !jarInitOk -> {
-                loadJar(onTabsChange)
+                loadJar(onTabsChange, onError)
             }
             else -> {
-                loadConfig(onTabsChange)
+                loadConfig(onTabsChange, onError)
             }
         }
     }
@@ -552,33 +621,33 @@ class HomeComposeFragment : Fragment() {
         return titles
     }
 
-    private fun loadConfig(onTabsChange: (List<String>) -> Unit) {
+    private fun loadConfig(onTabsChange: (List<String>) -> Unit, onError: (String) -> Unit) {
         ApiConfig.get().loadConfig(onlyConfigChanged, object : LoadConfigCallback {
             override fun retry() {
-                mHandler.post { initData(onTabsChange) }
+                mHandler.post { initData(onTabsChange, onError) }
             }
             override fun success() {
                 dataInitOk = true
                 if (ApiConfig.get().spider.isEmpty()) {
                     jarInitOk = true
                 }
-                mHandler.postDelayed({ initData(onTabsChange) }, 50)
+                mHandler.postDelayed({ initData(onTabsChange, onError) }, 50)
             }
             override fun error(msg: String) {
                 if (msg.equals("-1", ignoreCase = true)) {
                     mHandler.post {
                         dataInitOk = true
                         jarInitOk = true
-                        initData(onTabsChange)
+                        initData(onTabsChange, onError)
                     }
                 } else {
-                    showTipDialog(msg)
+                    onError(msg)
                 }
             }
         }, activity)
     }
 
-    private fun loadJar(onTabsChange: (List<String>) -> Unit) {
+    private fun loadJar(onTabsChange: (List<String>) -> Unit, onError: (String) -> Unit) {
         if (!ApiConfig.get().spider.isNullOrEmpty()) {
             ApiConfig.get().loadJar(
                 onlyConfigChanged,
@@ -590,7 +659,7 @@ class HomeComposeFragment : Fragment() {
                             if (!onlyConfigChanged) {
                                 queryHistory()
                             }
-                            initData(onTabsChange)
+                            initData(onTabsChange, onError)
                         }, 50)
                     }
                     override fun retry() {}
@@ -598,46 +667,14 @@ class HomeComposeFragment : Fragment() {
                         jarInitOk = true
                         mHandler.post {
                             ToastUtils.showShort("更新订阅失败")
-                            initData(onTabsChange)
+                            initData(onTabsChange, onError)
                         }
                     }
                 })
         }
     }
 
-    private fun showTipDialog(msg: String) {
-        if (errorTipDialog == null) {
-            errorTipDialog = TipDialog(requireActivity(), msg, "重试", "取消", object : TipDialog.OnListener {
-                override fun left() {
-                    mHandler.post {
-                        initData { }
-                        errorTipDialog?.hide()
-                    }
-                }
-                override fun right() {
-                    dataInitOk = true
-                    jarInitOk = true
-                    mHandler.post {
-                        initData { }
-                        errorTipDialog?.hide()
-                    }
-                }
-                override fun cancel() {
-                    dataInitOk = true
-                    jarInitOk = true
-                    mHandler.post {
-                        initData { }
-                        errorTipDialog?.hide()
-                    }
-                }
-                override fun onTitleClick() {
-                    errorTipDialog?.hide()
-                    startActivity(Intent(requireContext(), SubscriptionActivity::class.java))
-                }
-            })
-        }
-        if (errorTipDialog?.isShowing != true) errorTipDialog?.show()
-    }
+
 
     private fun refreshHomeSources() {
         val intent = Intent(App.getInstance(), MainActivity::class.java)
